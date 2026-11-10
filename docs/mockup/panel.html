@@ -1,0 +1,418 @@
+<title>Seer Panel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Mono:wght@400&display=swap">
+<style>
+/* Layout: one synth window, three rows of soft dark tiles (one per panel section) over a field of
+   smeared light, then the key strip with the two wheels. Nocturne look from Keys; single dark theme on purpose. */
+:root {
+  color-scheme: dark;
+  --night: #06090f;
+  --deck: #070b12;
+  --tile: rgba(11, 12, 14, .78);   /* black panel, a little light shows through */
+  --pop: #0b1018;
+  --fg: #ece3d0;                   /* silkscreen cream */
+  --frame: rgba(236, 227, 208, .30);
+  --wood-a: #2a160c; --wood-b: #7a4722; --wood-c: #9a5c2c; --wood-d: #46240f;
+  --cap-a: #34373c; --cap-b: #0d0e10; --slot: #030405;
+  --led-off: #3b0e10; --led-on: #ff4a43;
+  --lcd: #140506;
+  --fg-soft: #c9c5bf;
+  --fg-dim: #8e96a1;
+  --rule: rgba(235, 231, 225, .55);
+  --line: rgba(235, 231, 225, .16);
+  --red: #ec3a40;
+  --red-glow: rgba(236, 58, 64, .45);
+  --key-white-a: #f1ead9; --key-white-b: #cbc2ad; --key-on-a: #f6cfd0; --key-on-b: #e2686d;
+  --key-black-a: #1a1f26; --key-black-b: #07090c; --key-ink: #56606a;
+  --f-wide: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --f-mono: "DM Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+html, body { background: var(--night); }
+body { color: var(--fg); font-family: var(--f-wide); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.page { max-width: 1320px; margin: 0 auto; padding-block: clamp(20px, 3vw, 40px) 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: clamp(18px, 2.4vw, 28px); }
+.intro { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; }
+.intro > div { min-width: 0; }
+.eyebrow { margin: 0 0 8px; font-size: 11px; font-weight: 600; font-stretch: 118%; letter-spacing: .2em; text-transform: uppercase; color: var(--fg-dim); }
+.intro h1 { margin: 0; font-weight: 800; font-stretch: 118%; text-transform: uppercase; letter-spacing: .2em; font-size: clamp(22px, 3vw, 30px); line-height: 1.1; text-wrap: balance; }
+.lede { margin: .7em 0 0; color: var(--fg-soft); max-width: 64ch; }
+.btn { font: 700 12px/1 var(--f-wide); font-stretch: 115%; letter-spacing: .12em; text-transform: uppercase; color: var(--night); background: var(--fg); border: 0; border-radius: 10px; padding: 13px 18px; cursor: pointer; }
+button:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+.plugin { container-type: inline-size; }
+.win { position: relative; isolation: isolate; border-radius: 12px; overflow: hidden; background: var(--deck); box-shadow: 0 0 0 1px var(--line), 0 40px 90px -40px rgba(0, 0, 0, .95); }
+.field, .vignette { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+.win { padding-inline: var(--cheek, 24px); }
+.win::before, .win::after { content: ""; position: absolute; top: 0; bottom: 0; width: var(--cheek, 24px); z-index: 2;
+  background: repeating-linear-gradient(92deg, rgba(0, 0, 0, .0) 0 3px, rgba(0, 0, 0, .16) 3px 4px, rgba(255, 220, 170, .05) 4px 7px), linear-gradient(90deg, var(--wood-a), var(--wood-b) 30%, var(--wood-c) 55%, var(--wood-d));
+  box-shadow: inset 0 1px 0 rgba(255, 230, 190, .25), inset 0 -2px 4px rgba(0, 0, 0, .6); }
+.win::before { left: 0; border-right: 1px solid #000; } .win::after { right: 0; border-left: 1px solid #000; }
+.grain { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: .22; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.field { display: block; transform: scale(1.12); filter: blur(18px) saturate(1.05); }
+.vignette { background: radial-gradient(115% 90% at 50% 40%, transparent 35%, rgba(2, 4, 8, .9) 100%); }
+
+.hdr { display: flex; align-items: center; gap: 10px; padding: 14px 16px 0; }
+.sq { width: 36px; height: 36px; border-radius: 9px; background: var(--tile); box-shadow: inset 0 0 0 1.5px var(--rule); display: grid; place-items: center; font-size: 15px; flex: none; }
+.chip { font-size: 9.5px; font-weight: 700; font-stretch: 120%; letter-spacing: .18em; text-transform: uppercase; padding: 8px 11px; border-radius: 999px; box-shadow: inset 0 0 0 1.5px var(--line); color: var(--fg-dim); white-space: nowrap; }
+.spacer { flex: 1; }
+.presetbox { display: flex; align-items: center; border-radius: 10px; background: var(--tile); box-shadow: inset 0 0 0 1.5px var(--rule); min-width: 0; }
+.presetbox button { appearance: none; border: 0; background: none; color: var(--fg); width: 32px; height: 36px; cursor: pointer; font-size: 11px; }
+.presetbox { background: var(--lcd); box-shadow: inset 0 0 0 1px var(--frame), inset 0 3px 8px #000; border-radius: 5px; }
+.presetbox select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; color: var(--led-on); text-shadow: 0 0 9px var(--red-glow); font: 400 14px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; padding: 0 6px; min-width: 10em; text-align: center; text-align-last: center; cursor: pointer; }
+select option { background: var(--pop); color: var(--fg); }
+.title { margin: 6px 0 12px; text-align: center; font-weight: 800; font-stretch: 112%; text-transform: uppercase; letter-spacing: .62em; padding-left: .62em; color: var(--fg); font-size: clamp(20px, 2.6cqw, 30px); line-height: 1; text-shadow: 0 1px 0 #000; }
+
+.rows { display: grid; gap: 12px; padding: 0 18px 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; }
+.tile { flex: var(--w, 1) 1 var(--min, 150px); min-width: 0; background: var(--tile); border-radius: 5px; padding: 10px 10px 12px; display: grid; gap: 10px; align-content: start; transition: box-shadow .25s;
+  box-shadow: inset 0 0 0 1px var(--frame), inset 0 1px 0 rgba(255, 255, 255, .06), 0 8px 18px -10px #000; }
+.tile.live { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 55%, var(--frame)), inset 0 1px 0 rgba(255, 255, 255, .06), 0 0 30px -12px color-mix(in srgb, var(--hue) 70%, transparent); }
+.tile h3::before, .tile h3::after { content: ""; flex: 1; height: 1px; background: var(--frame); }
+.tile h3 { margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font: 700 11px/1 var(--f-wide); font-stretch: 125%; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
+.hue { width: 5px; height: 5px; border-radius: 50%; background: var(--hue); box-shadow: 0 0 8px var(--hue); flex: none; }
+.body { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center; gap: 10px 8px; }
+.side { display: grid; gap: 8px; align-content: center; justify-items: start; align-self: center; }
+.ctl { display: grid; justify-items: center; gap: 5px; min-width: 50px; }
+.cap { font-size: 8.5px; font-weight: 600; font-stretch: 120%; letter-spacing: .16em; text-transform: uppercase; color: var(--fg-dim); white-space: nowrap; text-align: center; }
+.ctl .cap.val { font: 400 10px/1 var(--f-mono); letter-spacing: 0; text-transform: none; color: var(--fg); }
+
+.knob { width: var(--k, 46px); height: var(--k, 46px); touch-action: none; cursor: ns-resize; border-radius: 50%; }
+.knob.big { --k: 88px; }
+.knob svg { display: block; width: 100%; height: 100%; overflow: visible; }
+/* a physical knob: printed scale, skirt, cap, one cream line */
+.knob .tk { stroke: var(--fg); stroke-width: 2.2; opacity: .7; }
+.knob .cap { filter: drop-shadow(0 4px 3px rgba(0, 0, 0, .65)); }
+.knob .top { stroke: #000; stroke-opacity: .55; }
+.knob .ptr { stroke: var(--fg); stroke-width: 4.5; stroke-linecap: round; }
+.knob.big .ptr { stroke-width: 3.2; }
+.knob.big .tk { stroke-width: 1.6; }
+
+.vs { position: relative; width: 34px; height: 92px; touch-action: none; cursor: ns-resize; border-radius: 6px; }
+.vs { background: repeating-linear-gradient(0deg, transparent 0 8.2px, var(--frame) 8.2px 9.2px) 0 0 / 6px 100% no-repeat, repeating-linear-gradient(0deg, transparent 0 8.2px, var(--frame) 8.2px 9.2px) 100% 0 / 6px 100% no-repeat; }
+.vs i { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 6px; margin-left: -3px; border-radius: 3px; background: var(--slot); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 2px 3px #000; }
+.vs b { position: absolute; left: 50%; width: 22px; height: 14px; margin: 0 0 -7px -11px; border-radius: 2px; background: linear-gradient(var(--cap-a) 0 42%, var(--fg) 42% 58%, var(--cap-b) 58%); box-shadow: 0 4px 5px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .18); }
+
+.dot { appearance: none; border: 0; background: none; color: var(--fg); font: 700 9.5px/1 var(--f-wide); font-stretch: 120%; letter-spacing: .12em; text-transform: uppercase; display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 2px; border-radius: 4px; white-space: nowrap; }
+/* an LED in a chrome bezel */
+.dot::before { content: ""; width: 10px; height: 10px; border-radius: 50%; flex: none; background: radial-gradient(circle at 35% 30%, #6a1c1e, var(--led-off) 60%); box-shadow: 0 0 0 1.5px #8c8a84, 0 0 0 2.5px #000, inset 0 1px 2px #000; }
+.dot[aria-pressed="true"]::before { background: radial-gradient(circle at 35% 30%, #ffd2c8, var(--led-on) 45%, #b01418); box-shadow: 0 0 0 1.5px #8c8a84, 0 0 0 2.5px #000, 0 0 12px 2px var(--red-glow); }
+.dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px 10px; }
+.side .dots { display: grid; justify-content: start; }
+.dd { display: grid; justify-items: center; gap: 5px; }
+.dd select { appearance: none; -webkit-appearance: none; background: var(--slot); color: var(--fg); border: 1px solid var(--frame); border-radius: 3px; box-shadow: inset 0 2px 4px #000; padding: 6px 10px; font: 400 11px/1.1 var(--f-mono); text-transform: uppercase; letter-spacing: .04em; text-align: center; text-align-last: center; cursor: pointer; max-width: 100%; }
+
+.keys { display: flex; gap: 14px; align-items: stretch; padding: 12px 18px 16px; background: rgba(4, 6, 10, .94); }
+.wheels { display: flex; gap: 10px; flex: none; }
+.wheel { display: grid; justify-items: center; gap: 5px; }
+.wheel .slot { position: relative; width: 26px; height: 74px; border-radius: 7px; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .55) 0 2px, transparent 2px 5px), linear-gradient(90deg, #05070a, #2a2e35 50%, #05070a); box-shadow: inset 0 0 0 1px var(--line), inset 0 8px 10px -4px #000, inset 0 -8px 10px -4px #000; touch-action: none; cursor: ns-resize; overflow: hidden; }
+.wheel .slot b { position: absolute; left: 3px; right: 3px; height: 5px; margin-bottom: -2.5px; background: var(--red); border-radius: 1px; box-shadow: 0 0 10px var(--red-glow); }
+.kb-scroll { flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.kb { position: relative; display: flex; height: 92px; min-width: 620px; user-select: none; -webkit-user-select: none; touch-action: pan-x; }
+.wk { flex: 1; position: relative; border-right: 1px solid rgba(4, 6, 10, .8); background: linear-gradient(var(--key-white-a), var(--key-white-b)); border-radius: 0 0 3px 3px; cursor: pointer; }
+.wk.on { background: linear-gradient(var(--key-on-a), var(--key-on-b)); }
+.wk[data-label]::after { content: attr(data-label); position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font: 400 8.5px/1 var(--f-mono); color: var(--key-ink); }
+.bk { position: absolute; top: 0; height: 60%; z-index: 1; background: linear-gradient(var(--key-black-a), var(--key-black-b)); border-radius: 0 0 2px 2px; box-shadow: 0 2px 3px rgba(0, 0, 0, .6); cursor: pointer; }
+.bk.on { background: linear-gradient(#8a2329, #4a0f13); }
+
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px 40px; }
+.notes > div { min-width: 0; }
+.notes h2 { margin: 0 0 10px; font-size: 13px; font-weight: 800; font-stretch: 122%; letter-spacing: .16em; text-transform: uppercase; }
+.notes p, .notes li { color: var(--fg-soft); max-width: 62ch; margin: 0 0 10px; }
+.notes ul { margin: 0; padding-left: 18px; }
+kbd { font: 400 12px/1.4 var(--f-mono); padding: 0 6px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(235, 231, 225, .25); white-space: nowrap; }
+/* at full width every row is one line and nothing inside a panel wraps */
+@container (min-width: 1100px) { .row { flex-wrap: nowrap; } .tile { flex-basis: 0; } .body { flex-wrap: nowrap; gap: 6px; } .ctl { min-width: 0; width: 48px; } .knob:not(.big) { --k: 42px; }
+  .ctl > .cap { width: 0; display: flex; justify-content: center; } .ctl:has(.big) { width: 92px; } }
+@container (max-width: 620px) { .win { --cheek: 10px; } .chip { display: none; } .rows { padding-inline: 10px; } .keys { padding-inline: 10px; } .title { letter-spacing: .4em; padding-left: .4em; } }
+@media (prefers-reduced-motion: reduce) { .tile { transition: none; } }
+</style>
+
+<main class="page">
+  <header class="intro">
+    <div>
+      <p class="eyebrow">Seer · milestone 0 · panel draft 2</p>
+      <h1>The full panel, in analog dress</h1>
+      <p class="lede">Every control of the synth on one screen, grouped the way the signal flows. Drag a knob up or down, click the lights, play the keys. The sound here is a rough browser sketch for trying the layout. It is not the engine.</p>
+    </div>
+    <button class="btn" id="phrase" type="button">▶ Play a phrase</button>
+  </header>
+
+  <section class="plugin" aria-label="Seer plugin window mockup">
+    <div class="win" id="win">
+      <canvas class="field" id="field" width="160" height="100"></canvas>
+      <div class="vignette"></div>
+      <div class="grain"></div>
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+        <radialGradient id="gSkirt" cx="50%" cy="30%" r="75%"><stop offset="0" stop-color="#3d4046"/><stop offset="1" stop-color="#0b0c0e"/></radialGradient>
+        <linearGradient id="gCap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34373c"/><stop offset="1" stop-color="#101113"/></linearGradient>
+        <linearGradient id="gSilver" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f1ea"/><stop offset=".45" stop-color="#aeaba3"/><stop offset=".6" stop-color="#d9d6ce"/><stop offset="1" stop-color="#6b6964"/></linearGradient>
+      </defs></svg>
+      <div class="hdr">
+        <span class="sq" title="Menu: voices, quality, bend range, tune, MIDI monitor">☰</span>
+        <span class="chip">6 voices · 2× · bend ±2</span>
+        <span class="spacer"></span>
+        <div class="presetbox">
+          <button type="button" id="prev" aria-label="Previous preset">◀</button>
+          <select id="preset" aria-label="Preset"></select>
+          <button type="button" id="next" aria-label="Next preset">▶</button>
+        </div>
+      </div>
+      <div class="title" role="heading" aria-level="2">Seer</div>
+      <div class="rows" id="rows"></div>
+      <div class="keys">
+        <div class="wheels">
+          <div class="wheel"><div class="slot" id="pitchWheel" tabindex="0" role="slider" aria-label="Pitch wheel"><b></b></div><span class="cap">Pitch</span></div>
+          <div class="wheel"><div class="slot" id="modWheel" tabindex="0" role="slider" aria-label="Mod wheel"><b></b></div><span class="cap">Mod</span></div>
+        </div>
+        <div class="kb-scroll"><div class="kb" id="kb"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="notes">
+    <div>
+      <h2>Reading the panel</h2>
+      <ul>
+        <li>Row 1 makes the tone: LFO, Poly Mod, the two oscillators, drift and the mixer.</li>
+        <li>Row 2 shapes it: both filters and both envelopes. Low-pass cutoff is the one large knob.</li>
+        <li>Row 3 is how it plays and where it goes: voice modes, glide, aftertouch, distortion, the two effects.</li>
+        <li>A small red light is a switch. In LFO, Poly Mod and Aftertouch the lights pick destinations.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Playing this draft</h2>
+      <p>Computer keys <kbd>A W S E D F T G Y H U J K</kbd> play from C3. The strip shows 49 keys, like your Code 49. The mod wheel adds vibrato when the LFO's Freq lights are on.</p>
+      <p>The light behind the tiles follows the sound: oscillator levels warm it, low-pass cutoff brightens the red, high-pass and effects add blue, LFO and Poly Mod add violet and speed.</p>
+    </div>
+    <div>
+      <h2>What I'd like you to check</h2>
+      <ul>
+        <li>Is the grouping and order right for how you work?</li>
+        <li>Is the density fine, or should knobs be larger and the window taller?</li>
+        <li>Envelopes as faders, or as knobs like the hardware?</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const NOTE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const pct = v => Math.round(v * 100) + '';
+const bi = v => (v > 0 ? '+' : '') + Math.round(v * 100);
+const expo = (lo, hi) => v => lo * Math.pow(hi / lo, v);
+const fmtTime = f => v => { const s = f(v); return s < 1 ? Math.round(s * 1000) + ' ms' : s.toFixed(1) + ' s'; };
+const aTime = expo(.001, 10), dTime = expo(.003, 20), lfoHz = expo(.02, 500);
+const cutHz = v => Math.min(22000, 10 * Math.pow(2, v / 12));
+const fmtHz = h => h < 1000 ? h.toFixed(h < 10 ? 2 : 0) + ' Hz' : (h / 1000).toFixed(1) + ' kHz';
+const shapeName = v => v < .08 ? 'Triangle' : v > .92 ? 'Pulse' : Math.abs(v - .5) < .08 ? 'Saw' : v < .5 ? 'Tri › Saw' : 'Saw › Pulse';
+
+// k(id, caption, default, {min,max,step,bi,big,fmt})   s(id, caption, default)   c(id, caption, default, options)   f = fader
+const k = (id, cap, v, o = {}) => ({ t: 'k', id, cap, v, min: 0, max: 1, fmt: o.bi ? bi : pct, ...o });
+const f = (id, cap, v, fmt = pct) => ({ t: 'f', id, cap, v, min: 0, max: 1, fmt });
+const s = (id, cap, v = false) => ({ t: 's', id, cap, v });
+const c = (id, cap, v, opts) => ({ t: 'c', id, cap, v, opts });
+const B = { bi: true, min: -1, max: 1 };
+const semis = { min: 0, max: 60, step: 1, fmt: v => NOTE[v % 12] + Math.floor(v / 12) };
+const cut = { min: 0, max: 164, fmt: v => fmtHz(cutHz(v)) };
+const KEYTRK = ['Off', 'Half', 'Full'];
+const FXA = ['Off', 'BBD delay', 'Digital delay', 'Chorus', 'Phaser 1', 'Phaser 2'];
+const ROWS = [
+  [ { name: 'LFO', hue: '#7a56ec', w: 1.5, top: [c('lfoShape', 'Shape', 0, ['Triangle', 'Saw', 'Rev saw', 'Square', 'Random'])], main: [k('lfoRate', 'Rate', .55, { fmt: v => fmtHz(lfoHz(v)) }), k('lfoAmt', 'Amount', 0)],
+      dots: [s('lfoFreq1', 'Freq 1', true), s('lfoFreq2', 'Freq 2', true), s('lfoPw', 'PW 1+2'), s('lfoAmp', 'Amp'), s('lfoLp', 'LP'), s('lfoHp', 'HP')] },
+    { name: 'Poly Mod', hue: '#c23a94', w: 1.2, main: [k('pmEnv', 'Filt env', 0, B), k('pmOsc2', 'Osc 2', 0, B)],
+      dots: [s('pmFreq1', 'Freq 1'), s('pmShape1', 'Shape 1'), s('pmPw1', 'PW 1'), s('pmLp', 'LP'), s('pmHp', 'HP')] },
+    { name: 'Oscillator 1', hue: '#e8a33d', w: 1.5, main: [k('osc1Freq', 'Freq', 24, semis), k('osc1Shape', 'Shape', .5, { fmt: shapeName }), k('osc1Pw', 'Width', .5)], dots: [s('osc1Sync', 'Sync')] },
+    { name: 'Oscillator 2', hue: '#e8763a', w: 1.9, main: [k('osc2Freq', 'Freq', 24, semis), k('osc2Fine', 'Fine', .06, { ...B, fmt: v => bi(v / 2) + ' ct' }), k('osc2Shape', 'Shape', .5, { fmt: shapeName }), k('osc2Pw', 'Width', .5)],
+      dots: [s('osc2LowFreq', 'Low freq'), s('osc2Kbd', 'Keyboard', true)] },
+    { name: 'Drift', hue: '#93708a', w: .9, min: '120px', main: [k('slop', 'Slop', .08), k('panSpread', 'Pan', .25)] },
+    { name: 'Mixer', hue: '#f4e3c3', w: 1.8, main: [k('mixOsc1', 'Osc 1', 1), k('mixOsc2', 'Osc 2', .8), k('mixSub', 'Sub', 0), k('mixNoise', 'Noise', 0)] } ],
+  [ { name: 'Low-pass · 24 dB', hue: '#e8263f', w: 2.3, min: '260px', main: [k('lpCutoff', 'Cutoff', 110, { ...cut, big: true }), k('lpRes', 'Reso', .1), k('lpEnv', 'Env amt', .3, B)],
+      side: [s('lpVel', 'Velocity', true), c('lpKey', 'Keyboard', 2, KEYTRK)] },
+    { name: 'High-pass · 12 dB', hue: '#4f8fe0', w: 1.9, min: '230px', main: [k('hpCutoff', 'Cutoff', 0, cut), k('hpRes', 'Reso', 0), k('hpEnv', 'Env amt', 0, B)],
+      side: [s('hpVel', 'Velocity'), c('hpKey', 'Keyboard', 0, KEYTRK)] },
+    { name: 'Filter envelope', hue: '#d64a3a', w: 1.5, min: '180px', main: [f('fEnvA', 'A', .1, fmtTime(aTime)), f('fEnvD', 'D', .45, fmtTime(dTime)), f('fEnvS', 'S', .5), f('fEnvR', 'R', .35, fmtTime(dTime))] },
+    { name: 'Amp envelope', hue: '#ebe7e1', w: 2.6, min: '230px', main: [f('aEnvA', 'A', .12, fmtTime(aTime)), f('aEnvD', 'D', .4, fmtTime(dTime)), f('aEnvS', 'S', .9), f('aEnvR', 'R', .3, fmtTime(dTime))],
+      side: [k('aEnvAmt', 'Amount', 1), s('aEnvVel', 'Velocity', true)] } ],
+  [ { name: 'Voice', hue: '#cdbfa6', w: 1.9, min: '240px', top: [c('unisonVoices', 'Voices', 0, ['1', '2', '3', '4', '5', '6']), c('keyMode', 'Key mode', 2, ['Low', 'High', 'Last', 'Low retrig', 'High retrig', 'Last retrig'])], main: [k('unisonDetune', 'Detune', .2)], dots: [s('unison', 'Unison', true)] },
+    { name: 'Glide', hue: '#b02a84', w: 1.3, min: '170px', top: [c('glideMode', 'Mode', 3, ['Fixed rate', 'Rate · legato', 'Fixed time', 'Time · legato'])], main: [k('glideRate', 'Rate', .3)], dots: [s('glideOn', 'Glide', true)] },
+    { name: 'Aftertouch', hue: '#7a56ec', w: 1.4, min: '170px', main: [k('atAmt', 'Amount', .3, B)],
+      dots: [s('atFreq1', 'Freq 1'), s('atFreq2', 'Freq 2'), s('atLfo', 'LFO amt', true), s('atAmp', 'Amp'), s('atLp', 'LP', true), s('atHp', 'HP')] },
+    { name: 'Output', hue: '#e8263f', w: 1, min: '130px', main: [k('dist', 'Distort', 0), k('voiceVol', 'Level', .75)] },
+    { name: 'Effect A', hue: '#2f66c8', w: 2.2, min: '200px', top: [c('fxAType', 'Type', 3, FXA)], main: [k('fxAMix', 'Mix', .25), k('fxAP1', 'Rate', .4), k('fxAP2', 'Depth', .4)] },
+    { name: 'Effect B', hue: '#2f66c8', w: 2.2, min: '200px', top: [c('fxBType', 'Type', 8, [...FXA, 'Hall', 'Room', 'Plate', 'Spring'])], main: [k('fxBMix', 'Mix', .2), k('fxBP1', 'Time', .5), k('fxBP2', 'Early', .4)], dots: [s('fxOn', 'Effects on', true)] } ],
+];
+const PRESETS = {
+  'Butter Lead': {},
+  'Thick Six': { osc1Freq: 12, osc2Freq: 12, osc2Fine: .12, unisonVoices: 5, unisonDetune: .45, mixSub: .6, lpCutoff: 84, lpRes: .2, lpEnv: .45, fEnvA: 0, fEnvD: .38, fEnvS: .15, aEnvA: 0, aEnvS: 1, aEnvR: .15, glideOn: false, panSpread: .5, fxAType: 0, fxBType: 0, dist: .25, lpKey: 1 },
+  'Round Wool': { osc1Freq: 12, osc2Freq: 12, osc1Shape: .15, osc2Shape: 1, osc2Pw: .5, mixOsc2: .35, mixSub: .8, unisonVoices: 0, lpCutoff: 70, lpRes: 0, lpEnv: .25, fEnvD: .3, fEnvS: .3, aEnvA: 0, aEnvR: .2, glideRate: .2, fxAType: 0, fxBType: 0, lpKey: 1 },
+  'Glass Pad': { unison: false, glideOn: false, osc1Shape: .9, osc2Shape: .85, osc1Pw: .35, lfoPw: true, lfoFreq1: false, lfoFreq2: false, lfoAmt: .35, lfoRate: .42, lpCutoff: 96, lpEnv: .2, fEnvA: .55, aEnvA: .5, aEnvR: .55, fEnvR: .55, panSpread: .7, fxBMix: .4, slop: .2 },
+};
+
+const V = {}, DEF = {}, UI = {};
+let liveTimer = {};
+function touch(tile) { tile.classList.add('live'); clearTimeout(liveTimer[tile.id]); liveTimer[tile.id] = setTimeout(() => tile.classList.remove('live'), 700); }
+
+function knobSvg(big) {
+  const n = 11, r1 = 51; let t = '';
+  for (let i = 0; i < n; i++) { const a = (-225 + 270 * i / (n - 1)) * Math.PI / 180, r0 = i % 5 === 0 ? 43 : 46; t += `<line class="tk" x1="${50 + r0 * Math.cos(a)}" y1="${50 + r0 * Math.sin(a)}" x2="${50 + r1 * Math.cos(a)}" y2="${50 + r1 * Math.sin(a)}"/>`; }
+  return `<svg viewBox="-3 -3 106 106" aria-hidden="true">${t}<g class="cap"><circle cx="50" cy="50" r="38" fill="url(#gSkirt)"/><circle class="top" cx="50" cy="50" r="${big ? 30 : 27}" fill="url(#${big ? 'gSilver' : 'gCap'})"/><line class="ptr" x1="50" y1="${big ? 21 : 30}" x2="50" y2="14"/></g></svg>`;
+}
+function dragValue(node, d, tile, onChange) {
+  node.tabIndex = 0; node.setAttribute('role', 'slider'); node.setAttribute('aria-label', d.cap);
+  const set = v => { v = Math.min(d.max, Math.max(d.min, v)); if (d.step) v = Math.round(v / d.step) * d.step; V[d.id] = v; onChange(); touch(tile); changed(d.id); };
+  let y0, v0;
+  node.addEventListener('pointerdown', e => { node.setPointerCapture(e.pointerId); y0 = e.clientY; v0 = V[d.id]; e.preventDefault(); node.focus(); });
+  node.addEventListener('pointermove', e => { if (y0 == null) return; set(v0 + (y0 - e.clientY) / (e.shiftKey ? 900 : 180) * (d.max - d.min)); });
+  const end = () => { y0 = null; }; node.addEventListener('pointerup', end); node.addEventListener('pointercancel', end);
+  node.addEventListener('dblclick', () => set(DEF[d.id]));
+  node.addEventListener('keydown', e => { const st = (d.step || (d.max - d.min) / 100) * (e.key === 'ArrowUp' || e.key === 'ArrowRight' ? 1 : e.key === 'ArrowDown' || e.key === 'ArrowLeft' ? -1 : 0); if (st) { set(V[d.id] + st); e.preventDefault(); } });
+  node.addEventListener('wheel', e => { e.preventDefault(); set(V[d.id] - Math.sign(e.deltaY) * (d.step || (d.max - d.min) / 50)); }, { passive: false });
+}
+function build(d, tile) {
+  V[d.id] = DEF[d.id] = d.v;
+  if (d.t === 's') {
+    const b = el('button', 'dot', d.cap); b.type = 'button';
+    UI[d.id] = () => b.setAttribute('aria-pressed', !!V[d.id]);
+    b.addEventListener('click', () => { V[d.id] = !V[d.id]; UI[d.id](); touch(tile); changed(d.id); });
+    return b;
+  }
+  if (d.t === 'c') {
+    const w = el('div', 'dd'), sel = el('select'); sel.id = 'p-' + d.id; sel.setAttribute('aria-label', d.cap);
+    d.opts.forEach((o, i) => sel.add(new Option(o, i)));
+    sel.addEventListener('change', () => { V[d.id] = +sel.value; touch(tile); changed(d.id); });
+    UI[d.id] = () => { sel.value = V[d.id]; };
+    w.append(sel, el('span', 'cap', d.cap)); return w;
+  }
+  const w = el('div', 'ctl'), cap = el('span', 'cap', d.cap);
+  let node, paint;
+  if (d.t === 'f') {
+    node = el('div', 'vs', '<i></i><b></b>'); const bar = $('b', node);
+    paint = () => { bar.style.bottom = ((V[d.id] - d.min) / (d.max - d.min) * 100) + '%'; };
+  } else {
+    node = el('div', 'knob' + (d.big ? ' big' : ''), knobSvg(d.big)); const ptr = $('.ptr', node), tks = [...node.querySelectorAll('.tk')];
+    paint = () => { const n = (V[d.id] - d.min) / (d.max - d.min); ptr.setAttribute('transform', `rotate(${-135 + 270 * n} 50 50)`);
+      tks.forEach((t, i) => { const p = i / (tks.length - 1); t.classList.toggle('on', d.bi ? (p >= Math.min(n, .5) - .001 && p <= Math.max(n, .5) + .001 && Math.abs(n - .5) > .01) : p <= n + .001 && n > 0); }); };
+  }
+  const show = on => { cap.textContent = on ? d.fmt(V[d.id]) : d.cap; cap.classList.toggle('val', on); };
+  node.addEventListener('pointerenter', () => show(true)); node.addEventListener('pointerleave', () => show(false));
+  node.addEventListener('focus', () => show(true)); node.addEventListener('blur', () => show(false));
+  UI[d.id] = () => { paint(); node.setAttribute('aria-valuetext', d.fmt(V[d.id])); if (cap.classList.contains('val')) show(true); };
+  dragValue(node, d, tile, UI[d.id]);
+  w.append(node, cap); return w;
+}
+const rows = $('#rows'); let tileN = 0;
+ROWS.forEach(r => { const row = el('div', 'row'); r.forEach(t => {
+  const tile = el('div', 'tile'); tile.id = 't' + tileN++; tile.style.setProperty('--hue', t.hue); tile.style.setProperty('--w', t.w); if (t.min) tile.style.setProperty('--min', t.min);
+  tile.append(el('h3', '', `<span class="hue"></span>${t.name}`));
+  if (t.top) { const tp = el('div', 'body'); t.top.forEach(d => tp.append(build(d, tile))); tile.append(tp); }
+  const body = el('div', 'body'); t.main.forEach(d => body.append(build(d, tile)));
+  if (t.side) { const sd = el('div', 'side'); t.side.forEach(d => sd.append(build(d, tile))); body.append(sd); }
+  tile.append(body);
+  if (t.dots) { const ds = el('div', 'dots'); t.dots.forEach(d => ds.append(build(d, tile))); tile.append(ds); }
+  row.append(tile); }); rows.append(row); });
+const refresh = () => Object.values(UI).forEach(fn => fn());
+
+// ---- presets
+const sel = $('#preset'); Object.keys(PRESETS).forEach(n => sel.add(new Option(n, n)));
+function load(name) { Object.assign(V, DEF, PRESETS[name]); sel.value = name; refresh(); changed(); }
+sel.addEventListener('change', () => load(sel.value));
+const step = d => { const n = Object.keys(PRESETS); load(n[(n.indexOf(sel.value) + d + n.length) % n.length]); };
+$('#prev').addEventListener('click', () => step(-1)); $('#next').addEventListener('click', () => step(1));
+
+// ---- a rough voice, to make the panel playable in the browser
+let ac, out, lfo, lfoGain, bend; const held = new Map(); let mod = 0, pitch = 0;
+function audio() {
+  if (ac) return ac; ac = new AudioContext();
+  const comp = ac.createDynamicsCompressor(); out = ac.createGain(); out.connect(comp).connect(ac.destination);
+  lfo = ac.createOscillator(); lfoGain = ac.createGain(); lfo.connect(lfoGain); lfo.start();
+  bend = ac.createConstantSource(); bend.offset.value = 0; bend.start(); changed(); return ac;
+}
+function changed() {
+  if (!ac) return; const t = ac.currentTime;
+  out.gain.setTargetAtTime(.5 * V.voiceVol, t, .02);
+  lfo.frequency.setTargetAtTime(Math.min(40, lfoHz(V.lfoRate)), t, .02);
+  lfo.type = ['triangle', 'sawtooth', 'sawtooth', 'square', 'sine'][V.lfoShape];
+  lfoGain.gain.setTargetAtTime((V.lfoFreq1 || V.lfoFreq2) ? Math.min(1, V.lfoAmt + mod) * 60 : 0, t, .02);
+  bend.offset.setTargetAtTime(pitch * 200, t, .01);
+  held.forEach(v => { v.lp.forEach(fl => fl.frequency.setTargetAtTime(v.cut(), t, .03)); v.hp.frequency.setTargetAtTime(Math.max(10, cutHz(V.hpCutoff)), t, .03); });
+}
+const wave = sh => sh < .25 ? 'triangle' : sh < .75 ? 'sawtooth' : 'square';
+function noteOn(n) {
+  audio(); if (ac.state === 'suspended') ac.resume(); if (held.has(n)) return;
+  if (V.unison) [...held.keys()].forEach(noteOff);
+  const t = ac.currentTime, g = ac.createGain(), hp = ac.createBiquadFilter(), lp = [ac.createBiquadFilter(), ac.createBiquadFilter()];
+  hp.type = 'highpass'; hp.frequency.value = Math.max(10, cutHz(V.hpCutoff)); hp.Q.value = .7 + V.hpRes * 8;
+  lp.forEach((fl, i) => { fl.type = 'lowpass'; fl.Q.value = i ? .5 + V.lpRes * 14 : .54; });
+  const cut = () => Math.min(18000, cutHz(V.lpCutoff) * Math.pow(2, (n - 60) / 12 * V.lpKey / 2));
+  const base = cut(), peak = Math.min(18000, Math.max(20, base * Math.pow(2, V.lpEnv * 8))), A = aTime(V.fEnvA), D = dTime(V.fEnvD);
+  lp.forEach(fl => { fl.frequency.setValueAtTime(base, t); fl.frequency.linearRampToValueAtTime(peak, t + A); fl.frequency.setTargetAtTime(base + (peak - base) * V.fEnvS, t + A, D / 4); });
+  const stack = V.unison ? V.unisonVoices + 1 : 1, oscs = [];
+  const add = (type, semi, cents, level) => { if (level <= 0) return; const o = ac.createOscillator(), og = ac.createGain(); o.type = type; o.frequency.value = 440 * Math.pow(2, (n + semi - 69) / 12); o.detune.value = cents; og.gain.value = level / Math.sqrt(stack);
+    lfoGain.connect(o.detune); bend.connect(o.detune); o.connect(og).connect(lp[0]); o.start(t); oscs.push(o); };
+  for (let i = 0; i < stack; i++) { const sp = stack > 1 ? (i / (stack - 1) - .5) * 70 * V.unisonDetune : 0;
+    add(wave(V.osc1Shape), V.osc1Freq - 24, sp, .22 * V.mixOsc1); add(wave(V.osc2Shape), V.osc2Freq - 24, sp + V.osc2Fine * 50, .22 * V.mixOsc2); }
+  add('triangle', V.osc1Freq - 36, 0, .3 * V.mixSub);
+  lp[0].connect(lp[1]).connect(hp).connect(g).connect(out);
+  const aA = aTime(V.aEnvA), lvl = V.aEnvAmt; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(lvl, t + aA); g.gain.setTargetAtTime(lvl * V.aEnvS, t + aA, dTime(V.aEnvD) / 4);
+  held.set(n, { g, lp, hp, oscs, cut }); key(n, true); glow(n);
+}
+function noteOff(n) {
+  const v = held.get(n); if (!v) return; held.delete(n); key(n, false);
+  const t = ac.currentTime, R = dTime(V.aEnvR) / 4; v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0, t, R); v.oscs.forEach(o => o.stop(t + R * 7 + .05));
+}
+
+// ---- keys (49, C2–C6) and wheels
+const kb = $('#kb'), LO = 36, HI = 84, keyEl = {}; let whites = 0;
+for (let n = LO; n <= HI; n++) if (![1, 3, 6, 8, 10].includes(n % 12)) whites++;
+let wi = 0;
+for (let n = LO; n <= HI; n++) { const black = [1, 3, 6, 8, 10].includes(n % 12); let e;
+  if (black) { e = el('div', 'bk'); e.style.width = (100 / whites * .62) + '%'; e.style.left = (wi * 100 / whites - 100 / whites * .31) + '%'; }
+  else { e = el('div', 'wk'); if (n % 12 === 0) e.dataset.label = 'C' + (n / 12 - 1); wi++; }
+  e.dataset.n = n; keyEl[n] = e; kb.append(e); }
+const key = (n, on) => keyEl[n] && keyEl[n].classList.toggle('on', on);
+let ptrNote = null;
+kb.addEventListener('pointerdown', e => { const n = +e.target.dataset.n; if (!n) return; ptrNote = n; noteOn(n); });
+addEventListener('pointerup', () => { if (ptrNote != null) { noteOff(ptrNote); ptrNote = null; } });
+const MAP = 'awsedftgyhujk'; const down = {};
+addEventListener('keydown', e => { if (e.repeat || e.metaKey || e.ctrlKey || /SELECT|INPUT/.test(e.target.tagName)) return; const i = MAP.indexOf(e.key.toLowerCase()); if (i >= 0) { down[i] = true; noteOn(48 + i); } });
+addEventListener('keyup', e => { const i = MAP.indexOf(e.key.toLowerCase()); if (i >= 0 && down[i]) { down[i] = false; noteOff(48 + i); } });
+function wheel(node, spring, set) { const bar = $('b', node); let y0 = null, v0, v = spring ? 0 : 0;
+  const paint = () => { bar.style.bottom = (spring ? 50 + v * 42 : 8 + v * 84) + '%'; }; paint();
+  const put = x => { v = Math.max(spring ? -1 : 0, Math.min(1, x)); paint(); set(v); };
+  node.addEventListener('pointerdown', e => { node.setPointerCapture(e.pointerId); y0 = e.clientY; v0 = v; e.preventDefault(); });
+  node.addEventListener('pointermove', e => { if (y0 != null) put(v0 + (y0 - e.clientY) / (spring ? 30 : 60)); });
+  const end = () => { y0 = null; if (spring) put(0); }; node.addEventListener('pointerup', end); node.addEventListener('pointercancel', end);
+  node.addEventListener('keydown', e => { const d = e.key === 'ArrowUp' ? .1 : e.key === 'ArrowDown' ? -.1 : 0; if (d) { put(v + d); e.preventDefault(); } }); }
+wheel($('#pitchWheel'), true, v => { pitch = v; changed(); });
+wheel($('#modWheel'), false, v => { mod = v; changed(); });
+
+$('#phrase').addEventListener('click', () => { const seq = [[62, 0, .5], [65, .5, .25], [69, .75, .7], [67, 1.5, .25], [65, 1.75, .25], [72, 2, .9], [69, 3, .3], [70, 3.3, .3], [69, 3.6, 1.2]];
+  seq.forEach(([n, at, len]) => { setTimeout(() => noteOn(n), at * 480); setTimeout(() => noteOff(n), (at + len) * 480 - 20); }); });
+
+// ---- the light field
+const cv = $('#field'), cx = cv.getContext('2d'), glows = [];
+const glow = n => glows.push({ x: (n - LO) / (HI - LO), life: 1 });
+const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function frame(ms) {
+  const t = ms / 1000, W = cv.width, H = cv.height;
+  const amber = (V.mixOsc1 + V.mixOsc2 + V.mixSub) / 3, red = V.lpCutoff / 164 * .8 + V.lpRes * .3, blue = V.hpCutoff / 164 + (V.fxOn ? (V.fxAType ? V.fxAMix : 0) + (V.fxBType ? V.fxBMix : 0) : 0) * .6 + .15,
+    violet = V.lfoAmt + Math.abs(V.pmEnv) + Math.abs(V.pmOsc2) + mod + .12, speed = still ? 0 : .08 + V.lfoAmt * .5 + V.slop * .4;
+  cx.globalCompositeOperation = 'source-over'; cx.fillStyle = '#06090f'; cx.fillRect(0, 0, W, H); cx.globalCompositeOperation = 'lighter';
+  const blob = (x, y, r, col, a) => { const g = cx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, col + Math.round(Math.min(1, a) * 255).toString(16).padStart(2, '0')); g.addColorStop(1, col + '00'); cx.fillStyle = g; cx.fillRect(0, 0, W, H); };
+  const p = (i, fx, fy) => [W * (.5 + .42 * Math.sin(t * speed * fx + i * 2.1)), H * (.45 + .4 * Math.cos(t * speed * fy + i * 1.3))];
+  blob(...p(0, .7, .5), 70, '#e8763a', .10 + .3 * amber); blob(...p(1, .5, .9), 80, '#e8263f', .08 + .42 * red);
+  blob(...p(2, .9, .6), 75, '#2f66c8', .32 * Math.min(1.2, blue)); blob(...p(3, .6, .8), 65, '#7a56ec', .3 * Math.min(1.3, violet));
+  blob(...p(4, .4, .7), 60, '#c23a94', .1 + .25 * V.lpRes + .15 * V.dist);
+  for (let i = glows.length - 1; i >= 0; i--) { const g = glows[i]; blob(W * (.08 + .84 * g.x), H * (.92 - (1 - g.life) * .25), 34, '#f4e3c3', .5 * g.life); g.life -= .012; if (g.life <= 0) glows.splice(i, 1); }
+  requestAnimationFrame(frame);
+}
+load('Butter Lead'); requestAnimationFrame(frame);
+})();
+</script>

@@ -1,0 +1,21 @@
+# Build output (CMake binary dirs)
+/build/
+/out/
+cmake-build-*/
+CMakeUserPresets.json
+compile_commands.json
+*.log
+
+# IDE state
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+
+# Downloaded tools (pluginval etc.)
+/tools/
+
+# OS junk
+.DS_Store
+Thumbs.db
