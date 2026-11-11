@@ -49,6 +49,13 @@ void SeerProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     {
         const auto m = metadata.getMessage();
         midiEventCount.fetch_add(1, std::memory_order_relaxed);
+        if (m.getRawDataSize() >= 1 && m.getRawDataSize() <= 3 && !m.isMidiClock() && !m.isActiveSense())
+        {
+            const auto* bytes = m.getRawData();
+            lastMidiMessage.store(static_cast<uint32_t>(bytes[0]) | (m.getRawDataSize() > 1 ? static_cast<uint32_t>(bytes[1]) << 8 : 0u)
+                                      | (m.getRawDataSize() > 2 ? static_cast<uint32_t>(bytes[2]) << 16 : 0u),
+                                  std::memory_order_relaxed);
+        }
         if (m.isNoteOn())
         {
             lastNoteOn.store(m.getNoteNumber(), std::memory_order_relaxed);

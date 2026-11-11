@@ -67,9 +67,9 @@ TEST_CASE("Presets: the factory list is what the docs promise", "[preset]")
         basses += preset.category == "Bass" ? 1 : 0;
     }
     CHECK(names.size() == list.size()); // no two share a name
-    CHECK(leads == 8);
-    CHECK(basses == 8);
-    CHECK(list.size() >= 24);
+    CHECK(leads == 11);
+    CHECK(basses == 12);
+    CHECK(list.size() >= 32);
     CHECK(list.front().name == "Butter Lead");
     CHECK(list.back().name == "Init");
     CHECK(list.back().values.empty());

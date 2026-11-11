@@ -330,7 +330,9 @@ Modulation SynthEngine::currentModulation() const noexcept
     mod.pitchOffset = pitchWheelSmooth * static_cast<float>(current.bendRange) + current.masterTune * 0.01f
                       + 12.0f * static_cast<float>(current.transpose);
     mod.lfo = lfoValue;
-    mod.lfoAmount = std::min(1.0f, current.lfoAmt + modWheelSmooth);
+    // The wheel adds only a part of the LFO's full depth, so its whole travel is usable: at the
+    // normal setting the top of the wheel is a vibrato of about a semitone each way.
+    mod.lfoAmount = std::min(1.0f, current.lfoAmt + current.wheelDepth * modWheelSmooth);
     mod.pressure = aftertouchSmooth;
     return mod;
 }

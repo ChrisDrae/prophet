@@ -112,6 +112,7 @@ struct EngineParams
     float masterVolDb = 0.0f;
     float masterTune = 0.0f; ///< cents
     int bendRange = 2;       ///< semitones
+    float wheelDepth = 0.3f; ///< how much LFO amount the mod wheel adds at the top of its travel
     int transpose = 0;       ///< octaves, -2..2
     int voices = 6;          ///< 6, 8, 10 or 12
     bool highQuality = false; ///< 4x oversampling instead of 2x

@@ -144,6 +144,7 @@ juce::StringArray lfoShapeChoices() { return { "Triangle", "Sawtooth", "Reverse 
 juce::StringArray keyModeChoices() { return { "Low", "High", "Last", "Low Retrig", "High Retrig", "Last Retrig" }; }
 juce::StringArray glideModeChoices() { return { "Fixed Rate", "Rate Legato", "Fixed Time", "Time Legato" }; }
 juce::StringArray voiceCountChoices() { return { "6", "8", "10", "12" }; }
+juce::StringArray wheelDepthChoices() { return { "Subtle", "Normal", "Deep", "Full" }; }
 
 juce::StringArray effectChoices(bool slotB)
 {
@@ -155,7 +156,7 @@ juce::StringArray effectChoices(bool slotB)
 
 bool isPlayerSetting(const juce::String& parameterId)
 {
-    for (const char* player : { id::masterVol, id::masterTune, id::bendRange, id::transpose, id::voices, id::quality })
+    for (const char* player : { id::masterVol, id::masterTune, id::bendRange, id::transpose, id::voices, id::quality, id::wheelDepth })
         if (parameterId == player)
             return true;
     return false;
@@ -169,7 +170,7 @@ juce::StringArray allParameterIds()
     for (const auto& s : kBools)
         ids.add(s.id);
     ids.addArray({ id::lpKey, id::hpKey, id::lfoShape, id::bendRange, id::unisonVoices, id::keyMode, id::glideMode, id::fxAType,
-                   id::fxBType, id::transpose, id::voices, id::quality });
+                   id::fxBType, id::transpose, id::voices, id::quality, id::wheelDepth });
     return ids;
 }
 
@@ -198,6 +199,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
                                                    AudioParameterIntAttributes().withLabel("oct")));
     layout.add(std::make_unique<AudioParameterChoice>(ParameterID { id::voices, 1 }, "Voices", voiceCountChoices(), 0));
     layout.add(std::make_unique<AudioParameterChoice>(ParameterID { id::quality, 1 }, "Quality", StringArray { "2x", "4x" }, 0));
+    layout.add(std::make_unique<AudioParameterChoice>(ParameterID { id::wheelDepth, 1 }, "Mod Wheel Depth", wheelDepthChoices(), 1));
     return layout;
 }
 
@@ -225,6 +227,7 @@ ParameterReader::ParameterReader(juce::AudioProcessorValueTreeState& state)
     transpose = get(id::transpose);
     voices = get(id::voices);
     quality = get(id::quality);
+    wheelDepth = get(id::wheelDepth);
 }
 
 EngineParams ParameterReader::read() const noexcept
@@ -246,6 +249,8 @@ EngineParams ParameterReader::read() const noexcept
     p.transpose = std::clamp(roundToInt(transpose->load(std::memory_order_relaxed)), -2, 2);
     p.voices = 6 + 2 * choiceIndex(voices, 4);
     p.highQuality = choiceIndex(quality, 2) == 1;
+    constexpr float kWheelDepths[] = { 0.15f, 0.3f, 0.6f, 1.0f };
+    p.wheelDepth = kWheelDepths[choiceIndex(wheelDepth, 4)];
     return p;
 }
 } // namespace seer::params

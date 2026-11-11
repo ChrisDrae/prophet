@@ -16,14 +16,17 @@
 //  Switching glides the knobs to their new places over about a quarter of a second, so the sound
 //  morphs instead of jumping. Choices and switches change at once.
 //
-//  User presets are XML files in Documents/Seer/Presets. Message thread only.
+//  User presets are XML files in Documents/Seer/Presets, grouped into banks: every folder in
+//  there is a bank, named after the folder. Copy a folder to another computer and the bank goes
+//  with it. Message thread only.
 // =================================================================================================
 namespace seer
 {
 struct Preset
 {
     juce::String name;
-    juce::String category;                ///< "Lead", "Bass", "Pad", "Keys", or "User"
+    juce::String bank;                    ///< "Factory", or the name of a user bank (a folder)
+    juce::String category;                ///< factory presets: "Lead", "Bass", "Pad" or "Keys"
     std::map<juce::String, float> values; ///< parameter ID -> plain value (a choice's index)
     juce::File file;                      ///< empty for factory presets
 };
@@ -48,8 +51,16 @@ public:
     void next() { load((current + 1) % getNumPresets()); }
     void previous() { load((current + getNumPresets() - 1) % getNumPresets()); }
 
-    /// Saves the current sound as a user preset (overwrites one with the same name).
-    juce::File saveUserPreset(const juce::String& name);
+    /// Saves the current sound into a user bank (overwrites a preset of the same name there).
+    /// The bank is created if it doesn't exist yet.
+    juce::File saveUserPreset(const juce::String& name, const juce::String& bank = kDefaultBank);
+    /// Deletes a user preset's file. Factory presets can't be deleted.
+    bool deleteUserPreset(int index);
+    /// The user banks, in alphabetical order (also empty ones).
+    juce::StringArray getUserBanks() const;
+    /// Makes an empty bank (a folder). Returns false if the name can't be a folder name.
+    bool createBank(const juce::String& name);
+    static inline const juce::String kFactoryBank { "Factory" }, kDefaultBank { "My Sounds" };
     static juce::File userFolder();
     void rescanUserPresets();
 

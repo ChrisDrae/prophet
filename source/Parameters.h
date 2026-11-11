@@ -112,6 +112,7 @@ inline constexpr const char* quality = "quality";
 inline constexpr const char* masterVol = "masterVol";
 inline constexpr const char* masterTune = "masterTune";
 inline constexpr const char* bendRange = "bendRange";
+inline constexpr const char* wheelDepth = "wheelDepth";
 } // namespace id
 
 juce::StringArray keyTrackChoices();
@@ -120,8 +121,10 @@ juce::StringArray keyModeChoices();
 juce::StringArray glideModeChoices();
 juce::StringArray effectChoices(bool slotB);
 juce::StringArray voiceCountChoices();
+juce::StringArray wheelDepthChoices();
 
-/// The parameters presets leave alone: master volume and tune, bend range, transpose, voice count, quality.
+/// The parameters presets leave alone: master volume and tune, bend range, mod wheel depth,
+/// transpose, voice count, quality.
 bool isPlayerSetting(const juce::String& parameterId);
 /// Every parameter ID, in layout order.
 juce::StringArray allParameterIds();
@@ -150,6 +153,6 @@ private:
 
     std::vector<FloatField> floats;
     std::vector<BoolField> bools;
-    std::atomic<float>*lpKey, *hpKey, *lfoShape, *bendRange, *unisonVoices, *keyMode, *glideMode, *fxAType, *fxBType, *transpose, *voices, *quality;
+    std::atomic<float>*lpKey, *hpKey, *lfoShape, *bendRange, *unisonVoices, *keyMode, *glideMode, *fxAType, *fxBType, *transpose, *voices, *quality, *wheelDepth;
 };
 } // namespace seer::params

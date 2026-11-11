@@ -17,7 +17,7 @@ using Values = std::map<juce::String, float>;
 
 Preset make(const char* name, const char* category, Values values)
 {
-    return { name, category, std::move(values), {} };
+    return { name, PresetManager::kFactoryBank, category, std::move(values), {} };
 }
 
 /// Ease in and out (a smoothstep-like quadratic), so the knobs start and land gently.
@@ -27,9 +27,9 @@ float ease(float u)
 }
 
 // Choice indices, named.
-constexpr float kHalf = 1, kFull = 2;                                             // keyboard tracking
+constexpr float kOff = 0, kHalf = 1, kFull = 2;                                   // keyboard tracking
 constexpr float kLast = 2, kLowRetrig = 3, kLastRetrig = 5;                       // key mode
-constexpr float kRateLegato = 1, kTimeLegato = 3;                                 // glide mode
+constexpr float kFixedRate = 0, kRateLegato = 1, kTimeLegato = 3;                                 // glide mode
 constexpr float kBbd = 1, kDdl = 2, kChorus = 3, kPhaser1 = 4, kPhaser2 = 5;      // effect types
 constexpr float kHall = 6, kRoom = 7, kPlate = 8, kSpring = 9;
 constexpr float kSquare = 3;                                                      // LFO shape
@@ -109,6 +109,23 @@ const std::vector<Preset>& factoryPresets()
                     { id::fxAType, kDdl }, { id::fxAMix, 0.25f }, { id::fxAP1, 0.74f }, { id::fxAP2, 0.35f }, { id::fxBType, kSpring },
                     { id::fxBMix, 0.15f }, { id::voiceVol, 0.80f } })),
 
+        // Three in the manner of the classic American monosynths: hot mixer, a fat low end, glide.
+        make("Fusion Mono", "Lead",
+             lead({ { id::osc2Freq, 12 }, { id::osc2Fine, 5 }, { id::mixOsc1, 1.0f }, { id::mixOsc2, 0.85f }, { id::mixSub, 0.4f },
+                    { id::lpCutoff, 84 }, { id::lpRes, 0.22f }, { id::lpEnv, 0.35f }, { id::lpKey, kHalf }, { id::fEnvA, 0.05f },
+                    { id::fEnvD, 0.5f }, { id::fEnvS, 0.55f }, { id::fEnvR, 0.35f }, { id::aEnvA, 0.08f }, { id::aEnvR, 0.3f },
+                    { id::glideRate, 0.42f }, { id::dist, 0.15f }, { id::fxBType, kSpring }, { id::fxBMix, 0.12f }, { id::voiceVol, 0.7f } })),
+        make("Lucky Glide", "Lead",
+             lead({ { id::osc1Shape, 1.0f }, { id::osc2Shape, 1.0f }, { id::osc2Fine, 6 }, { id::mixOsc2, 0.8f }, { id::lpCutoff, 92 },
+                    { id::lpRes, 0.15f }, { id::lpEnv, 0.2f }, { id::fEnvA, 0.2f }, { id::fEnvD, 0.55f }, { id::fEnvS, 0.6f },
+                    { id::glideMode, kFixedRate }, { id::glideRate, 0.52f }, { id::aEnvA, 0.15f }, { id::aEnvR, 0.42f },
+                    { id::fxAType, kDdl }, { id::fxAMix, 0.22f }, { id::fxAP1, 0.72f }, { id::fxAP2, 0.4f }, { id::voiceVol, 0.6f } })),
+        make("Sun Brass", "Lead",
+             lead({ { id::osc2Fine, 4 }, { id::mixOsc2, 0.9f }, { id::lpCutoff, 70 }, { id::lpRes, 0.1f }, { id::lpEnv, 0.55f },
+                    { id::lpKey, kHalf }, { id::fEnvA, 0.4f }, { id::fEnvD, 0.55f }, { id::fEnvS, 0.6f }, { id::fEnvR, 0.38f },
+                    { id::aEnvA, 0.2f }, { id::aEnvR, 0.35f }, { id::glideRate, 0.35f }, { id::fxBType, kRoom }, { id::fxBMix, 0.18f },
+                    { id::voiceVol, 0.8f } })),
+
         // ---- basses -------------------------------------------------------------------------------
         make("Thick Six", "Bass",
              bass({ { id::unisonVoices, 5 }, { id::unisonDetune, 0.4f }, { id::mixSub, 0.5f }, { id::lpCutoff, 80 }, { id::lpRes, 0.15f },
@@ -142,6 +159,24 @@ const std::vector<Preset>& factoryPresets()
                     { id::osc1Pw, 0.4f }, { id::osc2Pw, 0.6f }, { id::lpCutoff, 84 }, { id::lpRes, 0.1f }, { id::lpEnv, 0.3f },
                     { id::fEnvD, 0.5f }, { id::fEnvS, 0.3f }, { id::fxAType, kChorus }, { id::fxAMix, 0.3f }, { id::voiceVol, 0.44f } })),
 
+        // Four more in the manner of the classic American monosynths and bass pedals.
+        make("Pedal Thunder", "Bass",
+             bass({ { id::osc2Fine, 10 }, { id::mixOsc2, 1.0f }, { id::mixSub, 0.6f }, { id::lpCutoff, 60 }, { id::lpRes, 0.1f },
+                    { id::lpEnv, 0.2f }, { id::lpKey, kOff }, { id::fEnvD, 0.6f }, { id::fEnvS, 0.6f }, { id::aEnvR, 0.38f },
+                    { id::dist, 0.1f }, { id::voiceVol, 0.7f } })),
+        make("Mono Punch", "Bass",
+             bass({ { id::osc2Shape, 1.0f }, { id::osc2Pw, 0.5f }, { id::mixOsc2, 0.8f }, { id::mixSub, 0.5f }, { id::lpCutoff, 56 },
+                    { id::lpRes, 0.3f }, { id::lpEnv, 0.65f }, { id::fEnvD, 0.34f }, { id::fEnvS, 0.1f }, { id::aEnvD, 0.55f },
+                    { id::aEnvS, 0.7f }, { id::voiceVol, 0.8f } })),
+        make("Funk Squelch", "Bass",
+             bass({ { id::osc1Shape, 1.0f }, { id::mixOsc2, 0.0f }, { id::mixSub, 0.35f }, { id::lpCutoff, 50 }, { id::lpRes, 0.62f },
+                    { id::lpEnv, 0.7f }, { id::fEnvD, 0.3f }, { id::fEnvS, 0.0f }, { id::aEnvD, 0.5f }, { id::aEnvS, 0.6f },
+                    { id::aEnvR, 0.15f }, { id::voiceVol, 0.9f } })),
+        make("Low Rider", "Bass",
+             bass({ { id::mixOsc2, 0.7f }, { id::osc2Fine, 7 }, { id::lpCutoff, 66 }, { id::lpRes, 0.35f }, { id::lpEnv, 0.4f },
+                    { id::fEnvD, 0.5f }, { id::fEnvS, 0.3f }, { id::keyMode, kLast }, { id::glideOn, 1 }, { id::glideMode, kFixedRate },
+                    { id::glideRate, 0.45f }, { id::dist, 0.3f }, { id::voiceVol, 0.7f } })),
+
         // ---- pads and keys ------------------------------------------------------------------------
         make("Glass Pad", "Pad",
              { { id::osc1Shape, 0.9f }, { id::osc2Shape, 0.85f }, { id::osc1Pw, 0.35f }, { id::lfoPw, 1 }, { id::lfoFreq1, 0 },
@@ -158,6 +193,11 @@ const std::vector<Preset>& factoryPresets()
                { id::lfoFreq2, 0 }, { id::lfoAmt, 0.25f }, { id::lfoRate, 0.22f }, { id::aEnvA, 0.5f }, { id::aEnvR, 0.6f },
                { id::panSpread, 0.6f }, { id::fxAType, kPhaser1 }, { id::fxAMix, 0.5f }, { id::fxAP1, 0.2f }, { id::fxAP2, 0.6f },
                { id::fxBType, kPlate }, { id::fxBMix, 0.25f }, { id::voiceVol, 0.66f } }),
+        make("Solar Wind", "Pad",
+             { { id::mixOsc1, 0 }, { id::mixOsc2, 0 }, { id::mixNoise, 1.0f }, { id::lpCutoff, 84 }, { id::lpRes, 0.78f }, { id::lpEnv, 0 },
+               { id::lpVel, 0 }, { id::lfoLp, 1 }, { id::lfoFreq1, 0 }, { id::lfoFreq2, 0 }, { id::lfoAmt, 0.3f }, { id::lfoRate, 0.2f },
+               { id::aEnvA, 0.6f }, { id::aEnvS, 1 }, { id::aEnvR, 0.65f }, { id::panSpread, 0.8f }, { id::fxBType, kHall },
+               { id::fxBMix, 0.35f }, { id::fxBP1, 0.65f }, { id::voiceVol, 0.8f } }),
         make("Brass Section", "Keys",
              { { id::osc2Fine, 6 }, { id::lpCutoff, 72 }, { id::lpRes, 0.1f }, { id::lpEnv, 0.5f }, { id::fEnvA, 0.36f }, { id::fEnvD, 0.55f },
                { id::fEnvS, 0.55f }, { id::fEnvR, 0.4f }, { id::aEnvA, 0.25f }, { id::aEnvS, 1 }, { id::aEnvR, 0.35f }, { id::panSpread, 0.5f },
@@ -217,28 +257,69 @@ juce::File PresetManager::userFolder()
     return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Seer").getChildFile("Presets");
 }
 
+juce::StringArray PresetManager::getUserBanks() const
+{
+    juce::StringArray banks;
+    for (const auto& folder : userFolder().findChildFiles(juce::File::findDirectories, false))
+        banks.add(folder.getFileName());
+    // Presets saved before there were banks sit in the main folder: they show as the default bank.
+    if (!banks.contains(kDefaultBank) && !userFolder().findChildFiles(juce::File::findFiles, false, "*.seerpreset").isEmpty())
+        banks.add(kDefaultBank);
+    banks.sortNatural();
+    return banks;
+}
+
+bool PresetManager::createBank(const juce::String& name)
+{
+    const auto clean = juce::File::createLegalFileName(name.trim());
+    return clean.isNotEmpty() && clean != kFactoryBank && userFolder().getChildFile(clean).createDirectory().wasOk();
+}
+
 void PresetManager::rescanUserPresets()
 {
     const auto currentName = presets.empty() ? juce::String() : getCurrentName();
+    const auto currentBank = presets.empty() ? juce::String() : presets[static_cast<size_t>(current)].bank;
     presets = factoryPresets();
 
-    auto files = userFolder().findChildFiles(juce::File::findFiles, false, "*.seerpreset");
-    files.sort();
-    for (const auto& file : files)
+    auto addFolder = [&](const juce::File& folder, const juce::String& bank)
     {
-        const auto xml = juce::XmlDocument::parse(file);
-        if (xml == nullptr || !xml->hasTagName("SeerPreset"))
-            continue;
-        Preset preset { xml->getStringAttribute("name", file.getFileNameWithoutExtension()), "User", {}, file };
-        for (const auto* child : xml->getChildWithTagNameIterator("PARAM"))
-            preset.values[child->getStringAttribute("id")] = static_cast<float>(child->getDoubleAttribute("value"));
-        presets.push_back(std::move(preset));
+        auto files = folder.findChildFiles(juce::File::findFiles, false, "*.seerpreset");
+        files.sort();
+        for (const auto& file : files)
+        {
+            const auto xml = juce::XmlDocument::parse(file);
+            if (xml == nullptr || !xml->hasTagName("SeerPreset"))
+                continue;
+            Preset preset { xml->getStringAttribute("name", file.getFileNameWithoutExtension()), bank, "User", {}, file };
+            for (const auto* child : xml->getChildWithTagNameIterator("PARAM"))
+                preset.values[child->getStringAttribute("id")] = static_cast<float>(child->getDoubleAttribute("value"));
+            presets.push_back(std::move(preset));
+        }
+    };
+    for (const auto& bank : getUserBanks())
+    {
+        if (bank == kDefaultBank)
+            addFolder(userFolder(), bank); // from before there were banks
+        addFolder(userFolder().getChildFile(bank), bank);
     }
 
     current = 0;
     for (int i = 0; i < getNumPresets(); ++i)
-        if (presets[static_cast<size_t>(i)].name == currentName)
+        if (presets[static_cast<size_t>(i)].name == currentName && (currentBank.isEmpty() || presets[static_cast<size_t>(i)].bank == currentBank))
             current = i;
+}
+
+bool PresetManager::deleteUserPreset(int index)
+{
+    if (index < 0 || index >= getNumPresets() || presets[static_cast<size_t>(index)].file == juce::File())
+        return false;
+    const bool wasCurrent = index == current;
+    if (!presets[static_cast<size_t>(index)].file.deleteFile())
+        return false;
+    rescanUserPresets();
+    if (wasCurrent && onPresetChanged)
+        onPresetChanged();
+    return true;
 }
 
 void PresetManager::load(int index, bool withGlide)
@@ -309,10 +390,13 @@ void PresetManager::finishGlide()
     glide.clear();
 }
 
-juce::File PresetManager::saveUserPreset(const juce::String& name)
+juce::File PresetManager::saveUserPreset(const juce::String& name, const juce::String& bank)
 {
     const auto cleanName = name.trim().isEmpty() ? juce::String("My preset") : name.trim();
-    const auto folder = userFolder();
+    auto cleanBank = juce::File::createLegalFileName(bank.trim());
+    if (cleanBank.isEmpty() || cleanBank == kFactoryBank)
+        cleanBank = kDefaultBank;
+    const auto folder = userFolder().getChildFile(cleanBank);
     if (!folder.createDirectory())
         return {};
 

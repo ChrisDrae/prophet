@@ -60,6 +60,8 @@ public:
     std::atomic<int> lastNoteOn { 60 };
     std::atomic<float> lastPitchWheel { 0.0f }, lastModWheel { 0.0f }, lastAftertouch { 0.0f };
     std::atomic<int> activeVoices { 0 };
+    /// The last MIDI message that arrived, packed as status | data1 << 8 | data2 << 16 (0 = none yet).
+    std::atomic<uint32_t> lastMidiMessage { 0 };
 
 private:
     juce::AudioProcessorValueTreeState apvts;

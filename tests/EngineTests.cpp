@@ -127,8 +127,8 @@ TEST_CASE("Engine: the mod wheel brings in vibrato", "[engine]")
     const double still = test::measureFrequency(lastHalf(h.render(0.5)), kRate);
     CHECK(std::abs(test::cents(still, 440.0)) < 0.3);
 
-    // With the wheel up, the pitch swings: short stretches measure sharp and flat.
-    h.engine.setModWheel(0.5f);
+    // With the wheel all the way up, the pitch swings about a semitone each way (0.3 squared x 12).
+    h.engine.setModWheel(1.0f);
     const auto out = h.render(2.0);
     double lowest = 1.0e9, highest = 0.0;
     for (size_t start = 0; start + 480 <= out.size(); start += 480)
@@ -137,8 +137,24 @@ TEST_CASE("Engine: the mod wheel brings in vibrato", "[engine]")
         lowest = std::min(lowest, hz);
         highest = std::max(highest, hz);
     }
-    CHECK(test::cents(highest, 440.0) > 100.0);
-    CHECK(test::cents(lowest, 440.0) < -100.0);
+    CHECK(test::cents(highest, 440.0) > 70.0);
+    CHECK(test::cents(highest, 440.0) < 125.0);
+    CHECK(test::cents(lowest, 440.0) < -70.0);
+    CHECK(test::cents(lowest, 440.0) > -125.0);
+
+    // Halfway up it is a gentle vibrato: about a quarter of a semitone.
+    h.engine.setModWheel(0.5f);
+    h.render(0.5);
+    const auto gentle = h.render(2.0);
+    lowest = 1.0e9, highest = 0.0;
+    for (size_t start = 0; start + 480 <= gentle.size(); start += 480)
+    {
+        const double hz = test::measureFrequency({ gentle.begin() + static_cast<long long>(start), gentle.begin() + static_cast<long long>(start + 480) }, kRate);
+        lowest = std::min(lowest, hz);
+        highest = std::max(highest, hz);
+    }
+    CHECK(test::cents(highest, 440.0) > 12.0);
+    CHECK(test::cents(highest, 440.0) < 40.0);
 }
 
 TEST_CASE("Engine: a released note fades and frees its voice", "[engine]")
