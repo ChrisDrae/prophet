@@ -125,7 +125,7 @@ The LFO restarts when a key is pressed with no other key held. **[M]**
 | `fxAMix` `fxBMix` | Mix | 0–1 | 0.3 | **[M]** fully dry to fully wet |
 | `fxAP1` `fxBP1` | Parameter 1 | 0–1 | 0.5 | **[M]** delay time (to 1 s) · rate · reverb time · spring decay |
 | `fxAP2` `fxBP2` | Parameter 2 | 0–1 | 0.4 | **[M]** feedback · depth · early reflections · spring tone |
-| `voiceVol` | Voice volume | 0–1 | 0.75 | **[M]** per preset, for matching levels |
+| `voiceVol` | Voice volume | 0–1 | 0.4 | **[M]** per preset, for matching levels. Mono leads sit near 1, six-voice chords near 0.4 |
 
 ### Player settings (presets leave these alone)
 
@@ -135,7 +135,6 @@ The LFO restarts when a key is pressed with no other key held. **[M]**
 | `masterTune` | Master tune | −50…+50 cents | 0 |
 | `transpose` | Transpose | −2…+2 octaves | 0 |
 | `bendRange` | Pitch wheel range | 0–12 semitones | 2 |
-| `velCurve` `atCurve` | Velocity / aftertouch response | Curve 0–3 | 0 |
 | `voices` | Voice count | 6 / 8 / 10 / 12 | 6 |
 | `quality` | Oversampling | 2× / 4× | 2× |
 
@@ -143,18 +142,16 @@ The LFO restarts when a key is pressed with no other key held. **[M]**
 
 - Notes, velocity, pitch wheel (14-bit, smoothed), mod wheel (CC 1), sustain (CC 64), channel
   aftertouch, all-notes-off.
-- The hardware's CC map **[M]** is built in, so a controller set up for the real instrument works:
-  CC 102 low-pass cutoff, 103 resonance, 106 high-pass cutoff, 9 distortion, 8 sub level, 67 / 75
-  osc frequency, 70 / 78 shape, 43–46 amp ADSR, 50–53 filter ADSR, 47 / 54 env amounts, 65 glide.
-  In Ableton, the usual parameter mapping works as well.
+- Knobs and faders on a controller are mapped in the host (in Live: Configure, or MIDI map mode).
+  The hardware's own CC numbers are not built in.
 
 ## The model
 
 ### Oversampling
 
 Voices and their sum run at 2× the host rate, then pass a half-band low-pass (95 taps: flat to
-19.7 kHz, −80 dB above 24.4 kHz at a 44.1 kHz host rate) and drop back down. A 4× mode comes
-with milestone 2. The plugin reports the delay this adds (about 28 samples) to the host. Reasons: the filter's nonlinearity,
+19.7 kHz, −80 dB above 24.4 kHz at a 44.1 kHz host rate) and drop back down. In the 4× mode (☰ menu, Quality) a first, short half-band filter (23 taps) takes 4× to 2×.
+The plugin reports the delay this adds (about 28 samples) to the host. Reasons: the filter's nonlinearity,
 audio-rate Poly Mod and sync all make partials above the audible band, which would otherwise
 fold back as inharmonic noise.
 
@@ -204,7 +201,7 @@ current level. Velocity scales the amount, not the times.
 
 ### Voices
 
-- 6 voices (8–12 optional, M2). A new note reuses the voice already on that note, otherwise the
+- 6 voices (8, 10 or 12 from the ☰ menu). A new note reuses the voice already on that note, otherwise the
   voice that has been silent longest, otherwise steals the oldest released voice, then the oldest
   held one.
 - Each voice has fixed small offsets, seeded: cutoff ±2 %, envelope times ±3 %. They're part of
@@ -225,16 +222,43 @@ Per control tick (8 oversampled samples, about 0.1 ms): knob positions (glided o
 LFO depths at full amount **[A]**: pitch ±12 semitones (the amount is squared, so the lower
 half of the wheel gives fine vibrato), cutoff ±48 semitones, pulse width ±45 %.
 
-### Distortion and effects (M4)
+### Distortion and effects
 
-- Distortion: an asymmetric soft clipper per channel with antiderivative anti-aliasing, a
-  tone-shaping pair of filters around it, and level compensation so the knob adds grit more than
-  volume.
-- BBD delay: a modulated delay with companding and a low-pass that closes as the delay time
-  grows. Digital delay: clean, up to 1 s. Chorus: two BBD-style lines. Phasers: 6 all-pass stages,
-  high and low feedback. Reverbs: hall, room, plate (time, early reflections) and spring (decay,
-  tone).
+- **Distortion**: a slightly asymmetric tanh curve per channel, with antiderivative anti-aliasing,
+  running at the oversampled rate before the signal comes back down. Its slope for quiet signals
+  is exactly 1, so the knob adds grit and compression more than volume. A DC blocker follows. At 0
+  it is skipped: an exact bypass.
+- **BBD delay** (20 ms–1 s): two low-pass filters in the feedback loop that close as the delay
+  gets longer (10 kHz at 20 ms, 2.8 kHz at 1 s), a soft ceiling, and a slightly unsteady clock.
+  Changing the time bends the pitch of the repeats, as on a real one.
+- **Digital delay**: the same times, clean.
+- **Chorus**: one modulated delay per side around 9 ms, left and right moving in opposite
+  directions.
+- **Phasers**: six all-pass stages per side sweeping around 700 Hz; Phaser 1 with strong feedback,
+  Phaser 2 with mild.
+- **Reverbs** (slot B): the feedback-delay-network reverb from Keys. Hall 0.6–8 s, Room 0.2–3 s,
+  Plate 0.3–6 s with an early-reflections level; Spring 0.4–4 s with a tone control.
+- **Mix**: for delays and reverbs the dry signal stays at full level up to the middle of the knob;
+  chorus and phasers crossfade. A slot that is Off or at mix 0 does nothing to the signal.
+
+### Measured
+
+From the unit tests (`ctest --preset release`), at a 48 kHz host rate:
+
+| What | Result |
+|---|---|
+| Tuning, A1 to A6 | within 0.3 cents |
+| Pitch wheel | within 0.5 cents of the set range |
+| Low-pass slope, cutoff | 24.1 dB per octave; −12 dB at the cutoff, as four stages give |
+| Low-pass self-oscillation, 110 Hz–5 kHz | within 0.1 cent of the cutoff |
+| High-pass slope | 12 dB per octave |
+| Oscillator aliasing, 3.7 kHz note, every shape and sync | below −80 dB |
+| Whole chain, full-level 4 kHz sawtooth | −71 dB at 2×, −78 dB at 4× (set by the filter's input saturation) |
+| The same at a quarter of the level | below −80 dB |
+| Envelope times | within 3 % of the set time |
+| 6 voices | about 8 % of one core at 2× |
 
 ## What is not modeled
 
-The sequencer, the arpeggiator, chord memory, alternative tunings, LFO and delay clock sync, MPE.
+The sequencer, the arpeggiator, chord memory, alternative tunings, LFO and delay clock sync, the
+velocity and aftertouch response curves, the hardware's CC and NRPN maps, MPE.

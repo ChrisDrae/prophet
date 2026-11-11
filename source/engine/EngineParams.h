@@ -106,7 +106,7 @@ struct EngineParams
     EffectType fxAType = EffectType::off, fxBType = EffectType::off;
     float fxAMix = 0.3f, fxAP1 = 0.5f, fxAP2 = 0.4f;
     float fxBMix = 0.3f, fxBP1 = 0.5f, fxBP2 = 0.4f;
-    float voiceVol = 0.75f;
+    float voiceVol = 0.4f;
 
     // Player settings
     float masterVolDb = 0.0f;

@@ -16,7 +16,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 option(SEER_BUILD_TESTS "Build the Catch2 unit tests" ON)
-option(SEER_BUILD_TOOLS "Build the SeerRender dev tool" ON)
+option(SEER_BUILD_TOOLS "Build the SeerRender and SeerUiSnapshot dev tools" ON)
 
 # -------------------------------------------------------------------------------------------------
 #  JUCE: prefer the checkout next to this repo (../JUCE); otherwise download the pinned version.
@@ -35,6 +35,16 @@ else()
         GIT_SHALLOW ON)
     FetchContent_MakeAvailable(juce)
 endif()
+
+# -------------------------------------------------------------------------------------------------
+#  Fonts (SIL OFL), compiled into the binary.
+# -------------------------------------------------------------------------------------------------
+juce_add_binary_data(SeerFonts
+    NAMESPACE SeerFonts
+    SOURCES
+        assets/fonts/ArchivoExpanded-Bold.ttf
+        assets/fonts/ArchivoExpanded-ExtraBold.ttf
+        assets/fonts/ArchivoSemiExpanded-SemiBold.ttf)
 
 # -------------------------------------------------------------------------------------------------
 #  SeerEngine: oscillators, filters, envelopes, voices, as an INTERFACE library.
@@ -87,6 +97,9 @@ target_sources(SeerPluginSources INTERFACE
     source/Parameters.cpp
     source/PluginEditor.cpp
     source/PluginProcessor.cpp
+    source/Presets.cpp
+    source/ui/Controls.cpp
+    source/ui/SeerLookAndFeel.cpp
 )
 
 target_compile_definitions(Seer PUBLIC
@@ -98,6 +111,7 @@ target_link_libraries(Seer
     PRIVATE
         SeerPluginSources
         SeerEngine
+        SeerFonts
         juce::juce_audio_utils
     PUBLIC
         juce::juce_recommended_config_flags
@@ -128,10 +142,15 @@ if(SEER_BUILD_TESTS)
         tests/EnvelopeTests.cpp
         tests/FilterTests.cpp
         tests/OscillatorTests.cpp
+        tests/PresetTests.cpp
+        tests/VoiceModeTests.cpp
+        source/Parameters.cpp
+        source/Presets.cpp
     )
 
     target_link_libraries(SeerTests PRIVATE
         SeerEngine
+        juce::juce_audio_processors
         Catch2::Catch2WithMain
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags)
@@ -142,18 +161,28 @@ if(SEER_BUILD_TESTS)
 endif()
 
 # -------------------------------------------------------------------------------------------------
-#  Render tool: plays test phrases through the engine into WAV files, and prints their levels.
-#      build/vs2026/SeerRender_artefacts/Release/SeerRender.exe build/renders
+#  Dev tools. Both run the real plugin without a host.
+#      SeerRender      plays a phrase through every preset into WAV files, and prints their levels
+#                      build/vs2026/SeerRender_artefacts/Release/SeerRender.exe build/renders
+#      SeerUiSnapshot  renders the window into an image
+#                      build/vs2026/SeerUiSnapshot_artefacts/Release/SeerUiSnapshot.exe ui.png --demo
 # -------------------------------------------------------------------------------------------------
 if(SEER_BUILD_TOOLS)
-    juce_add_console_app(SeerRender PRODUCT_NAME "SeerRender")
+    foreach(tool SeerRender SeerUiSnapshot)
+        juce_add_console_app(${tool} PRODUCT_NAME "${tool}")
+        target_compile_definitions(${tool} PRIVATE
+            JucePlugin_Name="Seer"
+            JUCE_MODAL_LOOPS_PERMITTED=1
+            JUCE_WEB_BROWSER=0
+            JUCE_USE_CURL=0)
+        target_link_libraries(${tool} PRIVATE
+            SeerPluginSources
+            SeerEngine
+            SeerFonts
+            juce::juce_audio_utils
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+    endforeach()
     target_sources(SeerRender PRIVATE tests/SeerRender.cpp)
-    target_compile_definitions(SeerRender PRIVATE
-        JUCE_WEB_BROWSER=0
-        JUCE_USE_CURL=0)
-    target_link_libraries(SeerRender PRIVATE
-        SeerEngine
-        juce::juce_audio_formats
-        juce::juce_recommended_config_flags
-        juce::juce_recommended_warning_flags)
+    target_sources(SeerUiSnapshot PRIVATE tests/UiSnapshot.cpp)
 endif()

@@ -405,7 +405,7 @@ void SynthEngine::render(float* left, float* right, int numSamples) noexcept
     // --- distortion, still oversampled (at zero it is skipped: an exact bypass) ----------------------
     if (current.dist > 0.0f)
     {
-        distortion.set(dsp::Saturator::Curve::tube, 1.5f * current.dist, 0.3f);
+        distortion.set(dsp::Saturator::Curve::tube, 1.5f * current.dist, 0.45f);
         for (int i = 0; i < highSamples; ++i)
         {
             highLeft[static_cast<size_t>(i)] = distortionDc[0].process(distortion.process(highLeft[static_cast<size_t>(i)], 0));

@@ -4,8 +4,9 @@ namespace seer
 {
 namespace
 {
-/// One voice at full mixer levels stays well below clipping; six of them still fit.
-constexpr float kVoiceGain = 0.22f;
+/// One voice at full mixer levels is clearly audible on its own (a mono lead); a full six-voice
+/// chord then needs the preset's Level turned down, which the factory presets do.
+constexpr float kVoiceGain = 0.35f;
 /// The largest g the filters are run at (a cutoff of 0.45 x the sample rate).
 constexpr float kMaxG = 6.3f;
 
@@ -32,7 +33,9 @@ void Voice::prepare(double oversampledRate, int voiceIndex, int ticksLength)
     index = voiceIndex;
     tickLength = ticksLength;
     tickSeconds = tickLength / sampleRate;
-    cutoffTolerance = 0.35f * tolerance(index, 1); // about +-2 %
+    // Voice 0 is dead on: mono and unison sounds start there, and a self-oscillating filter played
+    // as a lead has to be in tune. The others are off by up to about 2 %.
+    cutoffTolerance = index == 0 ? 0.0f : 0.35f * tolerance(index, 1);
     timeTolerance = 1.0 + 0.03 * tolerance(index, 2);
     panPosition = (index % 2 == 0 ? -1.0f : 1.0f) * (0.4f + 0.3f * static_cast<float>((index / 2) % 3));
     noise = dsp::Noise(0x1234567u + static_cast<uint32_t>(index) * 7919u);

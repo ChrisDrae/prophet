@@ -5,7 +5,9 @@ cheeks, near-black panels with cream silkscreen frames and lettering, physical k
 and a grain over everything. The field of light from Keys' Nocturne look still moves behind the
 panels, dimmer.
 
-![The panel draft](images/seer-panel-draft.png)
+![The window](images/seer-window.jpg)
+
+The first draft, for comparison: [images/seer-panel-draft.png](images/seer-panel-draft.png).
 
 - Interactive draft: [`mockup/panel.html`](mockup/panel.html), published privately at
   https://claude.ai/artifact/X6Bv36bAcJHL1hLWBSCnFA
@@ -16,7 +18,8 @@ The artwork, names and layout are our own, and the hardware's panel graphics are
 
 ## Window
 
-Design size 1280 × 700, plus 120 for the key strip; scaled as a whole from 70 % to 150 %.
+Design size 1280 × 812, key strip included; scaled as a whole from 70 % to 150 % by dragging the
+window's corner.
 
 ```
 header   ☰ menu · status chip (voices, quality, bend range) · ◀ preset ▶
@@ -24,7 +27,7 @@ title    S E E R
 row 1    LFO · Poly Mod · Oscillator 1 · Oscillator 2 · Drift (slop, pan) · Mixer
 row 2    Low-pass (large cutoff knob) · High-pass · Filter envelope · Amp envelope
 row 3    Voice (unison) · Glide · Aftertouch · Output (distortion, level) · Effect A · Effect B
-keys     pitch wheel · mod wheel · 49 keys, C2–C6
+keys     pitch wheel · mod wheel · master volume · master tune · 49 keys, C2–C6
 ```
 
 The rows follow the signal: sources, then filters and envelopes, then how it plays and where it
@@ -60,12 +63,26 @@ Dropdowns sit above the knobs in their panel, so each row fits on one line.
 
 ## Menu (☰)
 
-Voice count, oversampling quality, pitch-wheel range, master tune, transpose, velocity and
-aftertouch response, still background, and the MIDI monitor from Keys for checking what the
-controller sends.
+Voice count (6, 8, 10, 12), quality (2× or 4× oversampling), pitch-wheel range, transpose, Save
+preset, Open the preset folder. Master volume and tune are the two knobs beside the wheels.
 
-## Reused from Keys
+## Header
 
-`KeysLookAndFeel`, `Tile`, `KnobColumn`, `FaderColumn`, `CaptionedChoice`, `ParamToggle`,
-`PresetBox`, `MenuButton`, `LibraryChip`, `ColourField`, `KeysStrip`, `MenuPanel`, and the
-editor's scaling and computer-keyboard code. New: the denser layout, the wheels, the section hues.
+The status line shows a MIDI lamp, the MIDI inputs (Standalone), how many voices are sounding,
+the quality and the bend range. The preset readout steps with its arrows; clicking the name opens
+the list, grouped into Leads, Basses, Pads, Keys and Yours.
+
+## How it is built
+
+| Part | Class | File |
+|---|---|---|
+| Colours, fonts, knob / fader / LED / dropdown drawing | `SeerLookAndFeel` | `source/ui/SeerLookAndFeel.*` |
+| A section plate that lays out its own controls | `Panel` | `source/ui/Controls.*` |
+| Knob, fader, switch, dropdown | `KnobControl`, `FaderControl`, `LedToggle`, `ChoiceControl` | `source/ui/Controls.*` |
+| Preset readout, status line, wheels, keys | `PresetDisplay`, `StatusChip`, `WheelControl`, `SeerKeyboard` | `source/ui/Controls.*` |
+| The light, the grain and the wood | `LightField`, `Overlay` | `source/ui/Controls.*` |
+| The window: which control goes on which panel | `SeerEditor` | `source/PluginEditor.*` |
+
+The light is painted into a 160 × 100 image 15 times a second and stretched over the window.
+Panels and the grain are kept as images, so a frame of light costs a few copies. With the window
+open and nothing playing, the Standalone app uses about 7 % of one core.

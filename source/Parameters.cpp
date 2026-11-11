@@ -82,8 +82,22 @@ const FloatSpec kFloats[] = {
     { id::lfoRate, "LFO Frequency", 0, 1, 0, 0.55f, [](float v, int) { return hertz(curves::lfoHz(v)); }, &EngineParams::lfoRate },
     { id::lfoAmt, "LFO Initial Amount", 0, 1, 0, 0.0f, percent, &EngineParams::lfoAmt },
 
+    { id::pmEnv, "Poly Mod Filter Env", -1, 1, 0, 0.0f, signedPercent, &EngineParams::pmEnv },
+    { id::pmOsc2, "Poly Mod Osc 2", -1, 1, 0, 0.0f, signedPercent, &EngineParams::pmOsc2 },
+    { id::atAmt, "Aftertouch Amount", -1, 1, 0, 0.0f, signedPercent, &EngineParams::atAmt },
+    { id::unisonDetune, "Unison Detune", 0, 1, 0, 0.2f, percent, &EngineParams::unisonDetune },
+    { id::glideRate, "Glide Rate", 0, 1, 0, 0.3f, [](float v, int) { return v <= 0.0f ? String("Off") : seconds(curves::glideSeconds(v)); }, &EngineParams::glideRate },
+    { id::slop, "Slop", 0, 1, 0, 0.08f, percent, &EngineParams::slop },
+    { id::dist, "Distortion", 0, 1, 0, 0.0f, percent, &EngineParams::dist },
+    { id::fxAMix, "Effect A Mix", 0, 1, 0, 0.25f, percent, &EngineParams::fxAMix },
+    { id::fxAP1, "Effect A Knob 1", 0, 1, 0, 0.4f, percent, &EngineParams::fxAP1 },
+    { id::fxAP2, "Effect A Knob 2", 0, 1, 0, 0.4f, percent, &EngineParams::fxAP2 },
+    { id::fxBMix, "Effect B Mix", 0, 1, 0, 0.2f, percent, &EngineParams::fxBMix },
+    { id::fxBP1, "Effect B Knob 1", 0, 1, 0, 0.5f, percent, &EngineParams::fxBP1 },
+    { id::fxBP2, "Effect B Knob 2", 0, 1, 0, 0.4f, percent, &EngineParams::fxBP2 },
+
     { id::panSpread, "Pan Spread", 0, 1, 0, 0.25f, percent, &EngineParams::panSpread },
-    { id::voiceVol, "Voice Volume", 0, 1, 0, 0.75f, percent, &EngineParams::voiceVol },
+    { id::voiceVol, "Voice Volume", 0, 1, 0, 0.4f, percent, &EngineParams::voiceVol },
 
     { id::masterVol, "Master Volume", -60, 6, 0, 0, [](float v, int) { return v <= -60.0f ? String("-inf dB") : String(v, 1) + " dB"; }, &EngineParams::masterVolDb },
     { id::masterTune, "Master Tune", -50, 50, 0, 0, [](float v, int) { return String(v, 1) + " ct"; }, &EngineParams::masterTune },
@@ -102,6 +116,21 @@ const BoolSpec kBools[] = {
     { id::lfoAmp, "LFO to Amp", false, &EngineParams::lfoAmp },
     { id::lfoLp, "LFO to Low-pass", false, &EngineParams::lfoLp },
     { id::lfoHp, "LFO to High-pass", false, &EngineParams::lfoHp },
+    { id::osc2LowFreq, "Osc 2 Low Freq", false, &EngineParams::osc2LowFreq },
+    { id::pmFreq1, "Poly Mod to Freq 1", false, &EngineParams::pmFreq1 },
+    { id::pmShape1, "Poly Mod to Shape 1", false, &EngineParams::pmShape1 },
+    { id::pmPw1, "Poly Mod to PW 1", false, &EngineParams::pmPw1 },
+    { id::pmLp, "Poly Mod to Low-pass", false, &EngineParams::pmLp },
+    { id::pmHp, "Poly Mod to High-pass", false, &EngineParams::pmHp },
+    { id::atFreq1, "Aftertouch to Freq 1", false, &EngineParams::atFreq1 },
+    { id::atFreq2, "Aftertouch to Freq 2", false, &EngineParams::atFreq2 },
+    { id::atLfo, "Aftertouch to LFO Amount", false, &EngineParams::atLfo },
+    { id::atAmp, "Aftertouch to Amp", false, &EngineParams::atAmp },
+    { id::atLp, "Aftertouch to Low-pass", false, &EngineParams::atLp },
+    { id::atHp, "Aftertouch to High-pass", false, &EngineParams::atHp },
+    { id::unison, "Unison", false, &EngineParams::unison },
+    { id::glideOn, "Glide", false, &EngineParams::glideOn },
+    { id::fxOn, "Effects On", true, &EngineParams::fxOn },
 };
 
 int choiceIndex(const std::atomic<float>* value, int count) noexcept
@@ -112,6 +141,37 @@ int choiceIndex(const std::atomic<float>* value, int count) noexcept
 
 juce::StringArray keyTrackChoices() { return { "Off", "Half", "Full" }; }
 juce::StringArray lfoShapeChoices() { return { "Triangle", "Sawtooth", "Reverse Saw", "Square", "Random" }; }
+juce::StringArray keyModeChoices() { return { "Low", "High", "Last", "Low Retrig", "High Retrig", "Last Retrig" }; }
+juce::StringArray glideModeChoices() { return { "Fixed Rate", "Rate Legato", "Fixed Time", "Time Legato" }; }
+juce::StringArray voiceCountChoices() { return { "6", "8", "10", "12" }; }
+
+juce::StringArray effectChoices(bool slotB)
+{
+    juce::StringArray names { "Off", "BBD Delay", "Digital Delay", "Chorus", "Phaser 1", "Phaser 2" };
+    if (slotB)
+        names.addArray({ "Hall", "Room", "Plate", "Spring" });
+    return names;
+}
+
+bool isPlayerSetting(const juce::String& parameterId)
+{
+    for (const char* player : { id::masterVol, id::masterTune, id::bendRange, id::transpose, id::voices, id::quality })
+        if (parameterId == player)
+            return true;
+    return false;
+}
+
+juce::StringArray allParameterIds()
+{
+    juce::StringArray ids;
+    for (const auto& s : kFloats)
+        ids.add(s.id);
+    for (const auto& s : kBools)
+        ids.add(s.id);
+    ids.addArray({ id::lpKey, id::hpKey, id::lfoShape, id::bendRange, id::unisonVoices, id::keyMode, id::glideMode, id::fxAType,
+                   id::fxBType, id::transpose, id::voices, id::quality });
+    return ids;
+}
 
 juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 {
@@ -129,6 +189,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     layout.add(std::make_unique<AudioParameterChoice>(ParameterID { id::lfoShape, 1 }, "LFO Shape", lfoShapeChoices(), 0));
     layout.add(std::make_unique<AudioParameterInt>(ParameterID { id::bendRange, 1 }, "Pitch Wheel Range", 0, 12, 2,
                                                    AudioParameterIntAttributes().withLabel("st")));
+    layout.add(std::make_unique<AudioParameterChoice>(ParameterID { id::unisonVoices, 1 }, "Unison Voices", StringArray { "1", "2", "3", "4", "5", "6" }, 0));
+    layout.add(std::make_unique<AudioParameterChoice>(ParameterID { id::keyMode, 1 }, "Key Mode", keyModeChoices(), 2));
+    layout.add(std::make_unique<AudioParameterChoice>(ParameterID { id::glideMode, 1 }, "Glide Mode", glideModeChoices(), 0));
+    layout.add(std::make_unique<AudioParameterChoice>(ParameterID { id::fxAType, 1 }, "Effect A Type", effectChoices(false), 0));
+    layout.add(std::make_unique<AudioParameterChoice>(ParameterID { id::fxBType, 1 }, "Effect B Type", effectChoices(true), 0));
+    layout.add(std::make_unique<AudioParameterInt>(ParameterID { id::transpose, 1 }, "Transpose", -2, 2, 0,
+                                                   AudioParameterIntAttributes().withLabel("oct")));
+    layout.add(std::make_unique<AudioParameterChoice>(ParameterID { id::voices, 1 }, "Voices", voiceCountChoices(), 0));
+    layout.add(std::make_unique<AudioParameterChoice>(ParameterID { id::quality, 1 }, "Quality", StringArray { "2x", "4x" }, 0));
     return layout;
 }
 
@@ -148,6 +217,14 @@ ParameterReader::ParameterReader(juce::AudioProcessorValueTreeState& state)
     hpKey = get(id::hpKey);
     lfoShape = get(id::lfoShape);
     bendRange = get(id::bendRange);
+    unisonVoices = get(id::unisonVoices);
+    keyMode = get(id::keyMode);
+    glideMode = get(id::glideMode);
+    fxAType = get(id::fxAType);
+    fxBType = get(id::fxBType);
+    transpose = get(id::transpose);
+    voices = get(id::voices);
+    quality = get(id::quality);
 }
 
 EngineParams ParameterReader::read() const noexcept
@@ -161,6 +238,14 @@ EngineParams ParameterReader::read() const noexcept
     p.hpKey = static_cast<KeyTrack>(choiceIndex(hpKey, 3));
     p.lfoShape = static_cast<LfoShape>(choiceIndex(lfoShape, 5));
     p.bendRange = choiceIndex(bendRange, 13);
+    p.unisonVoices = choiceIndex(unisonVoices, 6) + 1;
+    p.keyMode = static_cast<KeyMode>(choiceIndex(keyMode, 6));
+    p.glideMode = static_cast<GlideMode>(choiceIndex(glideMode, 4));
+    p.fxAType = static_cast<EffectType>(choiceIndex(fxAType, 6));
+    p.fxBType = static_cast<EffectType>(choiceIndex(fxBType, 10));
+    p.transpose = std::clamp(roundToInt(transpose->load(std::memory_order_relaxed)), -2, 2);
+    p.voices = 6 + 2 * choiceIndex(voices, 4);
+    p.highQuality = choiceIndex(quality, 2) == 1;
     return p;
 }
 } // namespace seer::params

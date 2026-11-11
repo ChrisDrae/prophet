@@ -70,6 +70,44 @@ inline constexpr const char* lfoHp = "lfoHp";
 inline constexpr const char* panSpread = "panSpread";
 inline constexpr const char* voiceVol = "voiceVol";
 
+// Poly Mod, aftertouch, voice modes, output
+inline constexpr const char* pmEnv = "pmEnv";
+inline constexpr const char* pmOsc2 = "pmOsc2";
+inline constexpr const char* atAmt = "atAmt";
+inline constexpr const char* unisonDetune = "unisonDetune";
+inline constexpr const char* glideRate = "glideRate";
+inline constexpr const char* slop = "slop";
+inline constexpr const char* dist = "dist";
+inline constexpr const char* fxAMix = "fxAMix";
+inline constexpr const char* fxAP1 = "fxAP1";
+inline constexpr const char* fxAP2 = "fxAP2";
+inline constexpr const char* fxBMix = "fxBMix";
+inline constexpr const char* fxBP1 = "fxBP1";
+inline constexpr const char* fxBP2 = "fxBP2";
+inline constexpr const char* osc2LowFreq = "osc2LowFreq";
+inline constexpr const char* pmFreq1 = "pmFreq1";
+inline constexpr const char* pmShape1 = "pmShape1";
+inline constexpr const char* pmPw1 = "pmPw1";
+inline constexpr const char* pmLp = "pmLp";
+inline constexpr const char* pmHp = "pmHp";
+inline constexpr const char* atFreq1 = "atFreq1";
+inline constexpr const char* atFreq2 = "atFreq2";
+inline constexpr const char* atLfo = "atLfo";
+inline constexpr const char* atAmp = "atAmp";
+inline constexpr const char* atLp = "atLp";
+inline constexpr const char* atHp = "atHp";
+inline constexpr const char* unison = "unison";
+inline constexpr const char* glideOn = "glideOn";
+inline constexpr const char* fxOn = "fxOn";
+inline constexpr const char* unisonVoices = "unisonVoices";
+inline constexpr const char* keyMode = "keyMode";
+inline constexpr const char* glideMode = "glideMode";
+inline constexpr const char* fxAType = "fxAType";
+inline constexpr const char* fxBType = "fxBType";
+inline constexpr const char* transpose = "transpose";
+inline constexpr const char* voices = "voices";
+inline constexpr const char* quality = "quality";
+
 // Player settings (presets leave these alone)
 inline constexpr const char* masterVol = "masterVol";
 inline constexpr const char* masterTune = "masterTune";
@@ -78,6 +116,15 @@ inline constexpr const char* bendRange = "bendRange";
 
 juce::StringArray keyTrackChoices();
 juce::StringArray lfoShapeChoices();
+juce::StringArray keyModeChoices();
+juce::StringArray glideModeChoices();
+juce::StringArray effectChoices(bool slotB);
+juce::StringArray voiceCountChoices();
+
+/// The parameters presets leave alone: master volume and tune, bend range, transpose, voice count, quality.
+bool isPlayerSetting(const juce::String& parameterId);
+/// Every parameter ID, in layout order.
+juce::StringArray allParameterIds();
 
 juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 
@@ -103,6 +150,6 @@ private:
 
     std::vector<FloatField> floats;
     std::vector<BoolField> bools;
-    std::atomic<float>*lpKey, *hpKey, *lfoShape, *bendRange;
+    std::atomic<float>*lpKey, *hpKey, *lfoShape, *bendRange, *unisonVoices, *keyMode, *glideMode, *fxAType, *fxBType, *transpose, *voices, *quality;
 };
 } // namespace seer::params
