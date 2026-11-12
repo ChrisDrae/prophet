@@ -7,13 +7,14 @@ built with C++20 and JUCE 8. "Seer" is a working name.
 
 ![Seer](docs/images/seer-window.jpg)
 
-It comes with 25 presets: eight mono leads for smooth, legato lines, eight basses, and pads and
-keys. See the [user guide](docs/user-guide.md).
+It comes with 33 presets: eleven mono leads for smooth, legato lines, twelve basses (some in the
+manner of the classic American monosynths), and pads and keys. Your own sounds go into banks:
+folders you can copy, back up and share. See the [user guide](docs/user-guide.md).
 
 | | |
 |---|---|
-| ![Thick Six: six stacked voices](docs/images/seer-thick-six.jpg) | ![Glass Pad: pulse-width pad in a hall](docs/images/seer-glass-pad.jpg) |
-| **Thick Six**: six detuned voices on one note, with sub and distortion | **Glass Pad**: pulse-width modulation, slow envelopes, hall |
+| ![The preset browser](docs/images/seer-presets.jpg) | ![Thick Six: six stacked voices](docs/images/seer-thick-six.jpg) |
+| **Presets**: grouped by kind, plus your banks | **Thick Six**: six detuned voices on one note, with sub and distortion |
 
 ## Status
 
@@ -44,8 +45,9 @@ ctest --preset release
 build\vs2026\Seer_artefacts\Release\Standalone\Seer.exe
 ```
 
-The Standalone app switches on every connected MIDI keyboard by itself. The status line at the
-top left names the inputs, and its lamp blinks when MIDI arrives.
+The Standalone app switches on a MIDI keyboard by itself (its main port; see the user guide for
+keyboards with several ports). The status line at the top left names the inputs, its lamp blinks
+when MIDI arrives, and it shows the last message received.
 
 ## Development
 
@@ -54,13 +56,13 @@ top left names the inputs, and its lamp blinks when MIDI arrives.
 | Unit tests | `ctest --preset release`, or `build\vs2026\Release\SeerTests.exe "[osc]"` (`[filter]`, `[env]`, `[engine]`, `[voice]`, `[fx]`, `[preset]`) |
 | Time the engine | `build\vs2026\Release\SeerTests.exe "[.bench]"` |
 | Hear every preset without a host | `build\vs2026\SeerRender_artefacts\Release\SeerRender.exe build\renders`: a phrase through each preset as WAVs, with their levels |
-| Screenshot the window | `build\vs2026\SeerUiSnapshot_artefacts\Release\SeerUiSnapshot.exe ui.png --demo [--preset 8] [--scale 1.5] [--set lpCutoff=90]` (write `.jpg` for the docs) |
+| Screenshot the window | `build\vs2026\SeerUiSnapshot_artefacts\Release\SeerUiSnapshot.exe ui.png --demo [--browser] [--preset 11] [--scale 1.5] [--set lpCutoff=90]` (write `.jpg` for the docs) |
 | Validate the VST3 | `powershell -ExecutionPolicy Bypass -File scripts\run-pluginval.ps1 -Strictness 10` |
 | Use the VST3 in Live | `scripts\install-dev-link.ps1` from an elevated PowerShell, then rescan plug-ins |
 
 ```
 source/engine   oscillators, filters, envelopes, voices, effects, the engine (no GUI; unit-tested)
-source/ui       look and feel, panels and controls, wheels, keys, the light behind the panels
+source/ui       look and feel, panels and controls, the preset browser, wheels, keys, the light
 source          processor, editor, parameters, presets
 tests           Catch2 tests, the render tool and the screenshot tool
 docs            guides, design, the mockup, screenshots

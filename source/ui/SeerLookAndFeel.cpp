@@ -247,9 +247,58 @@ juce::Font SeerLookAndFeel::getPopupMenuFont() { return valueFont(13.5f); }
 
 void SeerLookAndFeel::drawPopupMenuBackground(juce::Graphics& g, int width, int height)
 {
-    g.fillAll(colours::pop);
-    g.setColour(colours::line);
+    g.fillAll(juce::Colour(0xff0d0e10));
+    g.setColour(colours::frame);
     g.drawRect(0, 0, width, height, 1);
+}
+
+void SeerLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Rectangle<int>& area, bool isSeparator, bool isActive,
+                                        bool isHighlighted, bool isTicked, bool hasSubMenu, const juce::String& text,
+                                        const juce::String&, const juce::Drawable*, const juce::Colour*)
+{
+    if (isSeparator)
+    {
+        g.setColour(colours::line);
+        g.fillRect(area.reduced(10, 0).withHeight(1).withY(area.getCentreY()));
+        return;
+    }
+    const auto row = area.toFloat().reduced(3.0f, 1.0f);
+    if (isHighlighted && isActive)
+    {
+        g.setColour(colours::fg.withAlpha(0.1f));
+        g.fillRoundedRectangle(row, 3.0f);
+    }
+    if (isTicked)
+        drawLed(g, { row.getX() + 11.0f, row.getCentreY() }, 7.0f, true);
+    g.setColour(!isActive ? colours::fgDim.withAlpha(0.6f) : isTicked || isHighlighted ? colours::fg : colours::fg.withAlpha(0.86f));
+    g.setFont(valueFont(13.0f, 0.03f));
+    g.drawText(text, row.withTrimmedLeft(25.0f).withTrimmedRight(hasSubMenu ? 22.0f : 8.0f), juce::Justification::centredLeft, true);
+    if (hasSubMenu)
+    {
+        const float x = row.getRight() - 12.0f, y = row.getCentreY();
+        juce::Path arrow;
+        arrow.addTriangle(x - 2.5f, y - 4.0f, x - 2.5f, y + 4.0f, x + 3.0f, y);
+        g.fillPath(arrow);
+    }
+}
+
+void SeerLookAndFeel::drawPopupMenuSectionHeader(juce::Graphics& g, const juce::Rectangle<int>& area, const juce::String& sectionName)
+{
+    drawCaps(g, sectionName, area.toFloat().reduced(14.0f, 0.0f).withTrimmedTop(4.0f), labelFont(8.5f, 0.18f), colours::fgDim,
+             juce::Justification::centredLeft);
+}
+
+void SeerLookAndFeel::getIdealPopupMenuItemSize(const juce::String& text, bool isSeparator, int standardMenuItemHeight, int& idealWidth,
+                                                int& idealHeight)
+{
+    if (isSeparator)
+    {
+        idealWidth = 50;
+        idealHeight = 9;
+        return;
+    }
+    idealHeight = std::max(standardMenuItemHeight, 26);
+    idealWidth = juce::roundToInt(juce::GlyphArrangement::getStringWidth(valueFont(13.0f, 0.03f), text)) + 25 + 34;
 }
 
 juce::PopupMenu::Options SeerLookAndFeel::getOptionsForComboBoxPopupMenu(juce::ComboBox& box, juce::Label& label)

@@ -4,10 +4,17 @@
 
 ## Getting sound
 
-**Standalone app**: start `Seer.exe`. Every connected MIDI keyboard is switched on by itself; the
-status line at the top left names them, and its lamp blinks when MIDI arrives. If there is no
-sound, open Options (top left of the window frame) → Audio/MIDI Settings and pick your audio
-output.
+**Standalone app**: start `Seer.exe`. A MIDI keyboard is switched on by itself when it shows up.
+The status line at the top left names it, its lamp blinks when MIDI arrives, and "Last:" shows the
+last message (a note, the mod wheel, a CC number): handy for finding out what a button on your
+keyboard sends. If there is no sound, open Options (top left of the window frame) → Audio/MIDI
+Settings and pick your audio output.
+
+Many USB keyboards appear as several MIDI ports on Windows, for example "Code 49" and
+"MIDIIN2 (Code 49)" up to "MIDIIN4 (Code 49)". Seer switches on only the main port. The others
+carry the keyboard's DAW controls: in Mackie Control mode its buttons send notes and its faders
+send pitch bend, which would play and bend the synth. Turn them on in Audio/MIDI Settings if you
+need them.
 
 **In Ableton Live**: run `scripts\install-dev-link.ps1` once from an elevated PowerShell, rescan
 plug-ins, and drop Seer on a MIDI track.
@@ -15,10 +22,33 @@ plug-ins, and drop Seer on a MIDI track.
 Without a MIDI keyboard: click the on-screen keys (lower on a key is louder). Click them once and
 the computer keyboard plays too: `A W S E D F T G Y H U J K` from C3.
 
+**Window size**: drag the window's bottom-right corner, or pick ☰ → Window size (80 % to 200 %, or
+"Fit the screen"). The first time, Seer opens as large as fits your screen comfortably, up to
+125 %. The size is remembered.
+
 ## Presets
 
-The red readout at the top right shows the current sound. The arrows step through the list;
-clicking the name opens it.
+The red readout at the top right shows the current sound; its arrows step through the presets.
+Click the name to open the **preset browser**:
+
+![The preset browser](images/seer-presets.jpg)
+
+- **Left**: the factory sounds by kind (All, Leads, Basses, Pads, Keys), then your banks.
+- **Right**: the presets of the chosen group. Click one to hear it. The browser stays open, so you
+  can click through them while playing. Close it with ✕, Escape, a click outside it, or another
+  click on the readout.
+- **Save current sound...** asks for a name and a bank. **New bank...** makes an empty bank.
+  **Open folder** shows the presets on disk.
+- Right-click one of your presets to delete it. Factory presets can't be deleted.
+
+**Banks** are folders in `Documents/Seer/Presets`, one per bank, holding one `.seerpreset` file per
+sound. To back a bank up or take it to another computer, copy its folder. To install someone
+else's bank, put their folder there and reopen the browser.
+
+Presets store the sound. Master volume and tune, the pitch-wheel range, the mod-wheel depth,
+transpose, the voice count and the quality stay as you set them.
+
+### Factory sounds
 
 | Leads | Character |
 |---|---|
@@ -30,6 +60,9 @@ clicking the name opens it.
 | Night Flute | a triangle with breath noise and a slow attack |
 | Glass Whistle | no oscillators: the filter itself sings. Pressure bends it up |
 | Wheel Cry | resonant and driven, with a spring reverb |
+| Fusion Mono | an American-monosynth style lead: hot mixer, an octave-up second oscillator, sub, a touch of drive |
+| Lucky Glide | two pulse waves that slide on every note (fixed-rate glide, not only legato) |
+| Sun Brass | a slow filter swell on a fat sawtooth pair |
 
 | Basses | Character |
 |---|---|
@@ -41,24 +74,44 @@ clicking the name opens it.
 | Pluck Low | polyphonic, short |
 | Fretless | slides between overlapping notes; pressure adds vibrato |
 | Wide Detune | two detuned voices, one on each side |
+| Pedal Thunder | a bass-pedal style drone bass: two detuned sawtooths, sub, a closed filter |
+| Mono Punch | the classic monosynth bass: sawtooth and square, a snappy filter envelope |
+| Funk Squelch | a resonant square that quacks with every note |
+| Low Rider | a driven, gliding bass for slow lines |
 
-Then pads (Glass Pad, Slow Strings, Sweep Phase), keys (Brass Section, Poly Mod Bell, Clav Pulse,
-Soft Keys, Gate Organ) and **Init**, a plain starting point.
+Pads: Glass Pad, Slow Strings, Sweep Phase, Solar Wind (filtered noise, like wind). Keys: Brass
+Section, Poly Mod Bell, Clav Pulse, Soft Keys, Gate Organ. And **Init**, a plain starting point.
 
 **Playing the leads.** They are monophonic and legato: hold a note and play the next one to
-glide into it; lift first for a clean new attack. The mod wheel brings in vibrato. Pressing into
-a key after it is down (aftertouch) opens the filter and adds vibrato. The pitch wheel bends two
-semitones unless you change it in the menu.
+glide into it; lift first for a clean new attack. The mod wheel brings in vibrato, gently: at the
+top of its travel it is about a semitone. Pressing into a key after it is down (aftertouch) opens
+the filter and adds vibrato. The pitch wheel bends two semitones unless you change it in the menu.
 
-**Saving your own.** ☰ → Save preset. It lands in `Documents/Seer/Presets` and appears under
-"Yours". Presets store the sound; master volume, tune, the bend range, transpose, the voice count
-and the quality stay as you set them.
+## Your keyboard
+
+Everything here is in the ☰ menu, under "Your keyboard".
+
+- **Pitch wheel range**: 0 to 12 semitones.
+- **Mod wheel depth**: how much LFO the wheel adds at the top of its travel. Subtle (about a
+  quarter semitone of vibrato), Normal (about a semitone, the default), Deep, or Full.
+- **Transpose**, and the **octave buttons** in the key strip: − and + move what you play by an
+  octave, up to two each way. The readout between them shows the shift.
+- **Octave buttons on your keyboard.** Most keyboards shift their own notes when you press their
+  octave buttons, and Seer simply follows. If yours sends a message instead (a CC, or a program
+  change), teach it to Seer: right-click the on-screen − or + button (or ☰ → Octave buttons) and
+  choose Learn. The button blinks; press the matching button on your keyboard. From then on it
+  moves Seer's octave. This is remembered for every Seer, in every song. "Last:" in the status
+  line shows what a button sends.
 
 ## Every control
 
 Drag a knob or fader up or down. Hold Shift for fine steps, double-click to reset, or use the
 scroll wheel. The caption under a control shows its value while the mouse is over it. A red lamp
 is a switch.
+
+The red display windows (LFO shape, key mode, glide mode, effect types...) step with their small
+arrows or the scroll wheel; click the name in the middle for the whole list. The filters'
+Keyboard tracking is a column of lamps: click Off, Half or Full.
 
 ### Row 1: the tone
 
@@ -95,15 +148,16 @@ is a switch.
 | Output | Distort, Level | Distortion after the voices; the preset's volume |
 | Effect A, Effect B | Type, Mix, two knobs | Two effects in a row. The knobs are Time and Feedback for the delays, Rate and Depth for chorus and phasers, Time and Early for the reverbs, Decay and Tone for the spring. Reverbs are in B only |
 
-### The bottom strip
+### The key strip
 
-Pitch wheel (springs back), mod wheel, master Volume and Tune, and 49 keys from C2 to C6. The
-wheels follow your keyboard's wheels.
+Pitch wheel (springs back), mod wheel, the octave buttons, master Volume and Tune, and 49 keys from
+C2 to C6. The on-screen wheels follow your keyboard's wheels.
 
 ### The ☰ menu
 
-Voices (6 like the original, up to 12), Quality (4× oversampling is cleaner in the highest octaves
-and costs about twice the CPU), Pitch wheel range, Transpose, Save preset, Open the preset folder.
+Window size; Voices (6 like the original, up to 12); Quality (4× oversampling is cleaner in the
+highest octaves and costs about twice the CPU); Your keyboard (pitch wheel range, mod wheel depth,
+transpose, octave buttons); Presets; Save preset.
 
 ## Recipes
 
@@ -116,3 +170,6 @@ and costs about twice the CPU), Pitch wheel range, Transpose, Save preset, Open 
   Amount +25 and the LP lamp.
 - **A bell**: both oscillators on triangle, Osc 2 Freq well above Osc 1, Mixer Osc 2 at 0, Poly
   Mod Osc 2 around +40 with the Freq 1 lamp.
+- **The monosynth bass sound**: Unison on with one voice, Key mode Low Retrig, oscillators an
+  octave down with Osc 2 a few cents off, Mixer all up (the filter starts to saturate), cutoff low,
+  Reso around 30, Env amt +60, a short filter decay.

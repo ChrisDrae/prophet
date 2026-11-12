@@ -91,6 +91,7 @@ private:
     std::array<bool, 128> keyDown {}, sustained {};
     std::array<uint64_t, 128> keyTime {}; ///< when each key went down (for last-note priority)
     std::array<float, 128> keyVelocity {};
+    std::array<int, 128> playedAs {}; ///< for each incoming key: the (transposed) note it started, or -1
     bool pedal = false;
     float lastPitch = 60.0f; ///< where a glide starts from
     bool haveLastPitch = false;

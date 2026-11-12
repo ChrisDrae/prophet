@@ -99,6 +99,7 @@ target_sources(SeerPluginSources INTERFACE
     source/PluginProcessor.cpp
     source/Presets.cpp
     source/ui/Controls.cpp
+    source/ui/PresetBrowser.cpp
     source/ui/SeerLookAndFeel.cpp
 )
 

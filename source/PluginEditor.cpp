@@ -15,7 +15,19 @@ constexpr int kRow2 = kRow1 + kRow1Height + 12, kRow2Height = 166;
 constexpr int kRow3 = kRow2 + kRow2Height + 12, kRow3Height = 184;
 constexpr int kKeys = kRow3 + kRow3Height + 14;
 
-const juce::Identifier scaleProperty { "uiScale" };
+const juce::String scaleKey { "windowScale" };
+
+/// Windows names a USB keyboard's extra MIDI ports "MIDIIN2 (Code 49)", "MIDIIN3 (Code 49)"...
+/// Those usually carry its DAW-control messages (Mackie Control buttons send notes, its faders
+/// send pitch bend), which would play or bend the synth.
+bool isExtraPort(const juce::String& name)
+{
+    if (!name.startsWithIgnoreCase("MIDIIN") || !name.containsChar('('))
+        return false;
+    const auto number = name.substring(6, name.indexOfChar('(')).trim();
+    return number.isNotEmpty() && number.containsOnly("0123456789");
+}
+constexpr double kMinScale = 0.7, kMaxScale = 2.0;
 } // namespace
 
 void SeerEditor::Strip::paint(juce::Graphics& g)
@@ -44,14 +56,19 @@ SeerEditor::SeerEditor(SeerProcessor& p) : AudioProcessorEditor(p), seerProcesso
     content.addAndMakeVisible(presetDisplay);
     title.setInterceptsMouseClicks(false, false);
     menuButton.onClick = [this] { showMenu(); };
-    menuButton.setTooltip("Voices, quality, pitch wheel range, transpose");
+    menuButton.setTooltip("Window size, voices, quality, wheels, octave buttons");
 
     auto& presets = seerProcessor.getPresets();
     presetDisplay.setName(presets.getCurrentName());
     presetDisplay.onPrevious = [this] { seerProcessor.getPresets().previous(); };
     presetDisplay.onNext = [this] { seerProcessor.getPresets().next(); };
-    presetDisplay.onOpenList = [this] { showPresetList(); };
-    presets.onPresetChanged = [this] { presetDisplay.setName(seerProcessor.getPresets().getCurrentName()); };
+    presetDisplay.onOpenList = [this] { toggleBrowser(); };
+    presets.onPresetChanged = [this]
+    {
+        presetDisplay.setName(seerProcessor.getPresets().getCurrentName());
+        if (browser != nullptr)
+            browser->repaint();
+    };
 
     buildPanels();
 
@@ -61,20 +78,36 @@ SeerEditor::SeerEditor(SeerProcessor& p) : AudioProcessorEditor(p), seerProcesso
     auto& state = seerProcessor.getState();
     masterVolume = std::make_unique<KnobControl>(state, id::masterVol, "Volume", nullptr);
     masterTune = std::make_unique<KnobControl>(state, id::masterTune, "Tune", nullptr);
-    for (auto* c : std::initializer_list<juce::Component*> { &pitchWheel, &modWheel, masterVolume.get(), masterTune.get(), &keyboard })
+    octave = std::make_unique<OctaveControl>(state, id::transpose);
+    octave->onLearn = [this](int direction) { learnOctaveButton(direction); };
+    octave->onForget = [this](int direction)
+    {
+        seerProcessor.octaveButtons.setBinding(direction, 0);
+        seerProcessor.settings().setValue(direction < 0 ? "octaveDownMidi" : "octaveUpMidi", 0);
+        seerProcessor.settings().saveIfNeeded();
+    };
+    octave->describe = [this](int direction) { return seer::OctaveButtons::describe(seerProcessor.octaveButtons.getBinding(direction)); };
+    for (auto* c : std::initializer_list<juce::Component*> { &pitchWheel, &modWheel, octave.get(), masterVolume.get(), masterTune.get(), &keyboard })
         content.addAndMakeVisible(c);
     pitchWheel.onMove = [this](float v) { seerProcessor.setUiPitchWheel(v); };
     modWheel.onMove = [this](float v) { seerProcessor.setUiModWheel(v); };
 
     content.addAndMakeVisible(overlay); // on top of everything: the grain and the wood
+    content.addChildComponent(dimmer);
+    dimmer.onClick = [this] { closeBrowser(); };
     layout();
 
+    // Read the remembered size first: setting the limits resizes the (still empty) window, and
+    // only sizes chosen after this point are remembered.
+    const double saved = seerProcessor.settings().getDoubleValue(scaleKey, 0.0);
+    const double scale = juce::jlimit(kMinScale, kMaxScale, saved > 0.0 ? saved : defaultScale());
     setResizable(true, true);
-    setResizeLimits(kDesignWidth * 7 / 10, kDesignHeight * 7 / 10, kDesignWidth * 3 / 2, kDesignHeight * 3 / 2);
+    setResizeLimits(juce::roundToInt(kDesignWidth * kMinScale), juce::roundToInt(kDesignHeight * kMinScale),
+                    juce::roundToInt(kDesignWidth * kMaxScale), juce::roundToInt(kDesignHeight * kMaxScale));
     if (auto* fixedAspect = getConstrainer())
         fixedAspect->setFixedAspectRatio(static_cast<double>(kDesignWidth) / kDesignHeight);
-    const double scale = juce::jlimit(0.7, 1.5, static_cast<double>(state.state.getProperty(scaleProperty, 1.0)));
     setSize(juce::roundToInt(kDesignWidth * scale), juce::roundToInt(kDesignHeight * scale));
+    rememberSize = true;
 
     enableAllMidiInputs();
     updateEffectCaptions();
@@ -90,6 +123,9 @@ SeerEditor::~SeerEditor()
     stopTimer();
     seerProcessor.getPresets().onPresetChanged = nullptr;
     seerProcessor.setUiPitchWheel(0.0f);
+    seerProcessor.octaveButtons.learn(0);
+    seerProcessor.settings().saveIfNeeded();
+    browser.reset();
     setLookAndFeel(nullptr);
 }
 
@@ -125,6 +161,13 @@ void SeerEditor::led(Panel& p, const char* parameterId, const char* caption, boo
     auto* l = new LedToggle(seerProcessor.getState(), parameterId, caption);
     controls.add(l);
     side ? p.addSide(*l, l->getPreferredWidth(), 18) : p.addSwitch(*l, l->getPreferredWidth());
+}
+
+void SeerEditor::lamps(Panel& p, const char* parameterId, const char* caption)
+{
+    auto* s = new LedSelector(seerProcessor.getState(), parameterId, caption);
+    controls.add(s);
+    p.addSide(*s, s->getPreferredWidth(), s->getPreferredHeight());
 }
 
 void SeerEditor::choice(Panel& p, const char* parameterId, const char* caption, int width, bool side)
@@ -197,7 +240,7 @@ void SeerEditor::buildPanels()
         knob(p, id::lpRes, "Reso");
         knob(p, id::lpEnv, "Env amt");
         led(p, id::lpVel, "Velocity", true);
-        choice(p, id::lpKey, "Keyboard", 64, true);
+        lamps(p, id::lpKey, "Keyboard");
     }
     {
         auto& p = panel("High-pass \xc2\xb7 12 dB", colours::highPass, row(373, 267, kRow2, kRow2Height));
@@ -205,7 +248,7 @@ void SeerEditor::buildPanels()
         knob(p, id::hpRes, "Reso");
         knob(p, id::hpEnv, "Env amt");
         led(p, id::hpVel, "Velocity", true);
-        choice(p, id::hpKey, "Keyboard", 64, true);
+        lamps(p, id::hpKey, "Keyboard");
     }
     {
         auto& p = panel("Filter envelope", colours::filterEnv, row(653, 214, kRow2, kRow2Height));
@@ -227,14 +270,14 @@ void SeerEditor::buildPanels()
     // ---- row 3: how it plays and where it goes ---------------------------------------------------------
     {
         auto& p = panel("Voice", colours::voice, row(42, 212, kRow3, kRow3Height));
-        choice(p, id::unisonVoices, "Voices", 44);
-        choice(p, id::keyMode, "Key mode", 112);
+        choice(p, id::unisonVoices, "Voices", 58);
+        choice(p, id::keyMode, "Key mode", 124);
         knob(p, id::unisonDetune, "Detune");
         led(p, id::unison, "Unison");
     }
     {
         auto& p = panel("Glide", colours::glide, row(267, 151, kRow3, kRow3Height));
-        choice(p, id::glideMode, "Mode", 122);
+        choice(p, id::glideMode, "Mode", 132);
         knob(p, id::glideRate, "Rate");
         led(p, id::glideOn, "Glide");
     }
@@ -281,7 +324,7 @@ void SeerEditor::layout()
     overlay.setBounds(content.getLocalBounds());
 
     menuButton.setBounds(kLeft, 14, 36, 36);
-    chip.setBounds(kLeft + 46, 16, 520, 32);
+    chip.setBounds(kLeft + 46, 16, 600, 32);
     presetDisplay.setBounds(kRight - 264, 14, 264, 36);
     title.setBounds(kDesignWidth / 2 - 200, 54, 400, 36);
 
@@ -290,9 +333,12 @@ void SeerEditor::layout()
     const int top = kKeys + 10;
     pitchWheel.setBounds(kLeft, top, 40, 96);
     modWheel.setBounds(kLeft + 44, top, 40, 96);
-    masterVolume->setBounds(kLeft + 96, top + 18, KnobControl::kWidth, KnobControl::kHeight);
-    masterTune->setBounds(kLeft + 150, top + 18, KnobControl::kWidth, KnobControl::kHeight);
-    keyboard.setBounds(kLeft + 214, top, kRight - (kLeft + 214), 92);
+    octave->setBounds(kLeft + 96, top + 8, 96, 76);
+    masterVolume->setBounds(kLeft + 200, top + 18, KnobControl::kWidth, KnobControl::kHeight);
+    masterTune->setBounds(kLeft + 254, top + 18, KnobControl::kWidth, KnobControl::kHeight);
+    keyboard.setBounds(kLeft + 318, top, kRight - (kLeft + 318), 92);
+
+    dimmer.setBounds(content.getLocalBounds());
 }
 
 void SeerEditor::paint(juce::Graphics& g)
@@ -304,7 +350,8 @@ void SeerEditor::resized()
 {
     const float scale = static_cast<float>(getWidth()) / static_cast<float>(kDesignWidth);
     content.setTransform(juce::AffineTransform::scale(scale));
-    seerProcessor.getState().state.setProperty(scaleProperty, static_cast<double>(scale), nullptr);
+    if (rememberSize)
+        seerProcessor.settings().setValue(scaleKey, static_cast<double>(scale));
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -357,10 +404,14 @@ void SeerEditor::timerCallback()
     chip.setMidiLight(midiLight > 0);
 
     const int playing = seerProcessor.activeVoices.load();
-    const int bend = juce::roundToInt(value(id::bendRange));
-    chip.setText(midiInputText + juce::String::fromUTF8(" \xc2\xb7 ") + juce::String(playing) + " of " + juce::String(6 + 2 * juce::roundToInt(value(id::voices)))
-                 + " voices" + juce::String::fromUTF8(" \xc2\xb7 ") + (value(id::quality) > 0.5f ? "4x" : "2x")
-                 + juce::String::fromUTF8(" \xc2\xb7 bend \xc2\xb1") + juce::String(bend));
+    const auto dot = juce::String::fromUTF8(" \xc2\xb7 ");
+    const auto last = describeLastMidi();
+    chip.setText(midiInputText + (last.isEmpty() ? juce::String() : dot + "Last: " + last) + dot + juce::String(playing) + " of "
+                 + juce::String(6 + 2 * juce::roundToInt(value(id::voices))) + " voices" + dot + (value(id::quality) > 0.5f ? "4x" : "2x"));
+
+    // A learned octave button: stop blinking, and keep it for next time.
+    if (octave->getLearning() != 0 && seerProcessor.octaveButtons.getLearning() == 0)
+        octave->setLearning(0);
 
     pitchWheel.showValue(seerProcessor.lastPitchWheel.load());
     modWheel.showValue(seerProcessor.lastModWheel.load());
@@ -385,20 +436,28 @@ void SeerEditor::updateEffectCaptions()
 void SeerEditor::enableAllMidiInputs()
 {
 #if JucePlugin_Build_Standalone
-    // Standalone only: switch on every connected MIDI input (the settings dialog can still turn
-    // them off), and remember their names for the status line.
+    // Standalone only: switch on each MIDI keyboard's main port when it first shows up, and leave
+    // its extra ports off (see isExtraPort). Options > Audio/MIDI Settings can still change both;
+    // a port is set only once per run, so such a change sticks until the app is restarted.
     if (auto* holder = juce::StandalonePluginHolder::getInstance())
     {
+        static juce::StringArray handled; // ports already set up during this run
         auto& devices = holder->deviceManager;
         juce::StringArray names;
         for (const auto& input : juce::MidiInput::getAvailableDevices())
         {
-            if (!devices.isMidiInputDeviceEnabled(input.identifier))
-                devices.setMidiInputDeviceEnabled(input.identifier, true);
-            names.add(input.name);
+            if (!handled.contains(input.identifier))
+            {
+                handled.add(input.identifier);
+                devices.setMidiInputDeviceEnabled(input.identifier, !isExtraPort(input.name));
+            }
+            if (devices.isMidiInputDeviceEnabled(input.identifier))
+                names.add(input.name);
         }
-        midiInputText = names.isEmpty() ? "No MIDI input" : "In: " + names.joinIntoString(", ").substring(0, 30);
-        chip.setTooltip(names.isEmpty() ? "Connect a MIDI keyboard: it is switched on by itself." : "MIDI inputs: " + names.joinIntoString(", "));
+        midiInputText = names.isEmpty() ? "No MIDI input" : "In: " + names.joinIntoString(", ").substring(0, 22);
+        chip.setTooltip(names.isEmpty() ? "Connect a MIDI keyboard: it is switched on by itself."
+                                        : "MIDI inputs: " + names.joinIntoString(", ")
+                                              + ". A keyboard's extra ports (its DAW controls) are left off: Options > Audio/MIDI Settings turns them on.");
         return;
     }
 #endif
@@ -427,6 +486,16 @@ void SeerEditor::showMenu()
         target.addItem(text, true, ticked, [safe, parameterId, plain] { if (safe != nullptr) safe->setParameter(parameterId, plain); });
     };
 
+    juce::PopupMenu size;
+    const double scale = static_cast<double>(getWidth()) / kDesignWidth;
+    for (const int percent : { 80, 100, 125, 150, 175, 200 })
+        size.addItem(juce::String(percent) + " %", true, std::abs(scale * 100.0 - percent) < 2.0,
+                     [safe, percent] { if (safe != nullptr) safe->setWindowScale(percent / 100.0); });
+    size.addSeparator();
+    size.addItem("Fit the screen", [safe] { if (safe != nullptr) safe->setWindowScale(safe->defaultScale()); });
+    menu.addSubMenu("Window size", size);
+    menu.addSeparator();
+
     menu.addSectionHeader("Voices");
     for (int i = 0; i < 4; ++i)
         item(menu, juce::String(6 + 2 * i) + (i == 0 ? "  (like the original)" : ""), juce::roundToInt(value(id::voices)) == i, id::voices, static_cast<float>(i));
@@ -434,61 +503,172 @@ void SeerEditor::showMenu()
     item(menu, "2x oversampling", value(id::quality) < 0.5f, id::quality, 0.0f);
     item(menu, "4x oversampling  (cleaner highs, about twice the CPU)", value(id::quality) > 0.5f, id::quality, 1.0f);
 
-    juce::PopupMenu bend, transpose;
+    menu.addSectionHeader("Your keyboard");
+    juce::PopupMenu bend, wheel, transpose, buttons;
     for (int i = 0; i <= 12; ++i)
         item(bend, juce::String(i) + (i == 1 ? " semitone" : " semitones"), juce::roundToInt(value(id::bendRange)) == i, id::bendRange, static_cast<float>(i));
+    const char* depths[] = { "Subtle  (a quarter semitone at the top)", "Normal  (about a semitone)", "Deep  (about four semitones)", "Full  (as the LFO allows)" };
+    for (int i = 0; i < 4; ++i)
+        item(wheel, depths[i], juce::roundToInt(value(id::wheelDepth)) == i, id::wheelDepth, static_cast<float>(i));
     for (int i = -2; i <= 2; ++i)
         item(transpose, i == 0 ? juce::String("None") : juce::String(i > 0 ? "+" : "") + juce::String(i) + (std::abs(i) == 1 ? " octave" : " octaves"),
              juce::roundToInt(value(id::transpose)) == i, id::transpose, static_cast<float>(i));
-    menu.addSeparator();
+    for (const int direction : { -1, 1 })
+    {
+        const auto learned = seer::OctaveButtons::describe(seerProcessor.octaveButtons.getBinding(direction));
+        buttons.addItem(juce::String(direction < 0 ? "Learn octave down" : "Learn octave up") + (learned.isEmpty() ? "" : "  (now: " + learned + ")"),
+                        [safe, direction] { if (safe != nullptr) safe->learnOctaveButton(direction); });
+    }
     menu.addSubMenu("Pitch wheel range", bend);
+    menu.addSubMenu("Mod wheel depth", wheel);
     menu.addSubMenu("Transpose", transpose);
+    menu.addSubMenu("Octave buttons", buttons);
     menu.addSeparator();
+    menu.addItem("Presets...", [safe] { if (safe != nullptr) safe->openPresetBrowser(); });
     menu.addItem("Save preset...", [safe] { if (safe != nullptr) safe->savePresetDialog(); });
-    menu.addItem("Open the preset folder", [] { auto folder = seer::PresetManager::userFolder(); folder.createDirectory(); folder.revealToUser(); });
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&menuButton).withParentComponent(this));
 }
 
-void SeerEditor::showPresetList()
+void SeerEditor::learnOctaveButton(int direction)
 {
-    auto& presets = seerProcessor.getPresets();
-    juce::PopupMenu menu;
-    juce::String section;
-    for (int i = 0; i < presets.getNumPresets(); ++i)
+    seerProcessor.octaveButtons.learn(direction);
+    octave->setLearning(direction);
+}
+
+juce::String SeerEditor::describeLastMidi() const
+{
+    const uint32_t packed = seerProcessor.lastMidiMessage.load(std::memory_order_relaxed);
+    if (packed == 0)
+        return {};
+    const int status = static_cast<int>(packed & 0xff), a = static_cast<int>((packed >> 8) & 0x7f), b = static_cast<int>((packed >> 16) & 0x7f);
+    switch (status & 0xf0)
     {
-        const auto& preset = presets.getPreset(i);
-        if (preset.category != section)
-        {
-            section = preset.category;
-            menu.addSectionHeader(section == "Lead" ? "Leads" : section == "Bass" ? "Basses" : section == "Pad" ? "Pads" : section == "User" ? "Yours" : section);
-        }
-        menu.addItem(i + 1, preset.name, true, i == presets.getCurrentIndex());
+        case 0x90:
+            if (b > 0)
+                return "Note " + juce::MidiMessage::getMidiNoteName(a, true, true, 4);
+            [[fallthrough]];
+        case 0x80: return "Note off " + juce::MidiMessage::getMidiNoteName(a, true, true, 4);
+        case 0xa0: return "Key pressure";
+        case 0xb0: return a == 1 ? "Mod wheel " + juce::String(b) : a == 64 ? juce::String(b >= 64 ? "Pedal down" : "Pedal up") : "CC " + juce::String(a) + " = " + juce::String(b);
+        case 0xc0: return "Program " + juce::String(a);
+        case 0xd0: return "Pressure " + juce::String(a);
+        case 0xe0: return "Pitch wheel";
+        default: return {};
     }
-    menu.addSeparator();
-    menu.addItem(10000, "Save preset...");
-    juce::Component::SafePointer<SeerEditor> safe(this);
-    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&presetDisplay).withParentComponent(this), [safe](int result)
+}
+
+// -------------------------------------------------------------------------------------------------
+//  Window size
+// -------------------------------------------------------------------------------------------------
+double SeerEditor::defaultScale() const
+{
+    // A little bigger than the design size, as large as fits comfortably on the screen.
+    if (const auto* display = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
     {
-        if (safe == nullptr || result == 0)
-            return;
-        if (result == 10000)
-            safe->savePresetDialog();
-        else
-            safe->seerProcessor.getPresets().load(result - 1);
-    });
+        const auto area = display->userArea;
+        const double fit = std::min(area.getWidth() * 0.92 / kDesignWidth, area.getHeight() * 0.86 / kDesignHeight);
+        return juce::jlimit(kMinScale, 1.25, fit);
+    }
+    return 1.0;
+}
+
+void SeerEditor::setWindowScale(double scale)
+{
+    scale = juce::jlimit(kMinScale, kMaxScale, scale);
+    setSize(juce::roundToInt(kDesignWidth * scale), juce::roundToInt(kDesignHeight * scale));
+    seerProcessor.settings().saveIfNeeded();
+}
+
+// -------------------------------------------------------------------------------------------------
+//  Presets
+// -------------------------------------------------------------------------------------------------
+void SeerEditor::openPresetBrowser()
+{
+    if (browser == nullptr)
+        toggleBrowser();
+}
+
+void SeerEditor::toggleBrowser()
+{
+    if (browser != nullptr)
+    {
+        closeBrowser();
+        return;
+    }
+    browser = std::make_unique<PresetBrowser>(seerProcessor.getPresets());
+    browser->onClose = [this] { closeBrowser(); };
+    browser->onSave = [this] { savePresetDialog(); };
+    browser->onNewBank = [this] { newBankDialog(); };
+    dimmer.setVisible(true);
+    dimmer.toFront(false);
+    content.addAndMakeVisible(*browser);
+    browser->setBounds(kRight - PresetBrowser::kWidth, 56, PresetBrowser::kWidth, PresetBrowser::kHeight);
+    presetDisplay.toFront(false); // the readout stays clickable, so a second click closes the browser
+    browser->grabKeyboardFocus();
+}
+
+void SeerEditor::closeBrowser()
+{
+    dimmer.setVisible(false);
+    if (browser != nullptr)
+    {
+        // Deleted later: this may be running inside one of the browser's own callbacks.
+        juce::MessageManager::callAsync([safe = juce::Component::SafePointer<SeerEditor>(this)]
+        {
+            if (safe != nullptr && safe->browser != nullptr && !safe->dimmer.isVisible())
+                safe->browser.reset();
+        });
+        browser->setVisible(false);
+    }
 }
 
 void SeerEditor::savePresetDialog()
 {
-    auto* window = new juce::AlertWindow("Save preset", "Name this sound. It's saved in Documents/Seer/Presets.", juce::MessageBoxIconType::NoIcon, this);
-    window->addTextEditor("name", seerProcessor.getPresets().getCurrentName(), "Name");
+    auto& presets = seerProcessor.getPresets();
+    auto banks = presets.getUserBanks();
+    if (!banks.contains(seer::PresetManager::kDefaultBank))
+        banks.insert(0, seer::PresetManager::kDefaultBank);
+    const auto& current = presets.getPreset(presets.getCurrentIndex());
+    const auto preferred = browser != nullptr && browser->isVisible() ? browser->getSelectedUserBank()
+                           : current.bank != seer::PresetManager::kFactoryBank ? current.bank
+                                                                              : seer::PresetManager::kDefaultBank;
+
+    auto* window = new juce::AlertWindow("Save preset", "Name the sound and pick a bank. Banks are folders in Documents/Seer/Presets.",
+                                         juce::MessageBoxIconType::NoIcon, this);
+    window->addTextEditor("name", current.name, "Name");
+    window->addComboBox("bank", banks, "Bank");
+    if (auto* box = window->getComboBoxComponent("bank"))
+        box->setSelectedItemIndex(std::max(0, banks.indexOf(preferred)), juce::dontSendNotification);
     window->addButton("Save", 1, juce::KeyPress(juce::KeyPress::returnKey));
     window->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
 
     juce::Component::SafePointer<SeerEditor> safe(this);
     window->enterModalState(true, juce::ModalCallbackFunction::create([safe, window](int result)
     {
-        if (result == 1 && safe != nullptr)
-            safe->seerProcessor.getPresets().saveUserPreset(window->getTextEditorContents("name"));
+        if (result != 1 || safe == nullptr)
+            return;
+        const auto bank = window->getComboBoxComponent("bank") != nullptr ? window->getComboBoxComponent("bank")->getText() : seer::PresetManager::kDefaultBank;
+        safe->seerProcessor.getPresets().saveUserPreset(window->getTextEditorContents("name"), bank);
+        if (safe->browser != nullptr)
+            safe->browser->refresh(true);
+    }), true);
+}
+
+void SeerEditor::newBankDialog()
+{
+    auto* window = new juce::AlertWindow("New bank", "A bank is a folder of presets in Documents/Seer/Presets. Name it:",
+                                         juce::MessageBoxIconType::NoIcon, this);
+    window->addTextEditor("name", "", "Name");
+    window->addButton("Create", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    window->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+    juce::Component::SafePointer<SeerEditor> safe(this);
+    window->enterModalState(true, juce::ModalCallbackFunction::create([safe, window](int result)
+    {
+        if (result != 1 || safe == nullptr)
+            return;
+        const auto name = window->getTextEditorContents("name").trim();
+        if (safe->seerProcessor.getPresets().createBank(name) && safe->browser != nullptr)
+            safe->browser->showBank(juce::File::createLegalFileName(name));
     }), true);
 }

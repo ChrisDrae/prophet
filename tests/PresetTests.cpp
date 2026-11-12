@@ -1,5 +1,6 @@
 #include "Parameters.h"
 #include "Presets.h"
+#include "engine/OctaveButtons.h"
 #include "engine/SynthEngine.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -158,4 +159,73 @@ TEST_CASE("Presets: every factory sound plays, at a sensible level, and stays in
         CHECK(rmsDb > -40.0);  // every preset makes a sound
         CHECK(rmsDb < -8.0);
     }
+}
+
+TEST_CASE("Banks: saving into banks, listing them, and deleting", "[preset]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    const auto folder = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("SeerBankTest").getNonexistentSibling();
+    PresetManager::setUserFolderForTests(folder);
+    {
+        Host host;
+        PresetManager presets(host.state);
+        const int factory = presets.getNumFactoryPresets();
+        CHECK(presets.getUserBanks().isEmpty());
+        CHECK(presets.getNumPresets() == factory);
+
+        presets.load(0, false);
+        CHECK(presets.saveUserPreset("Night Line", "Gig Set") == folder.getChildFile("Gig Set").getChildFile("Night Line.seerpreset"));
+        CHECK(presets.saveUserPreset("Rumble") != juce::File()); // into the default bank
+        CHECK(presets.createBank("Empty One"));
+        CHECK_FALSE(presets.createBank("Factory")); // a name the factory sounds use
+        CHECK(presets.getUserBanks() == juce::StringArray { "Empty One", "Gig Set", "My Sounds" });
+        CHECK(presets.getNumPresets() == factory + 2);
+        CHECK(presets.getCurrentName() == "Rumble");
+
+        // A fresh manager finds them again, in their banks, with their sound.
+        PresetManager again(host.state);
+        int night = -1;
+        for (int i = 0; i < again.getNumPresets(); ++i)
+            if (again.getPreset(i).name == "Night Line")
+                night = i;
+        REQUIRE(night >= 0);
+        CHECK(again.getPreset(night).bank == "Gig Set");
+        CHECK(again.getPreset(night).values.at(params::id::unison) == 1.0f); // saved from Butter Lead
+
+        CHECK_FALSE(again.deleteUserPreset(0)); // factory presets stay
+        CHECK(again.deleteUserPreset(night));
+        CHECK(again.getNumPresets() == factory + 1);
+        CHECK_FALSE(folder.getChildFile("Gig Set").getChildFile("Night Line.seerpreset").exists());
+    }
+    PresetManager::setUserFolderForTests({});
+    folder.deleteRecursively();
+}
+
+TEST_CASE("Octave buttons: learn a button, then each press moves an octave", "[preset]")
+{
+    OctaveButtons buttons;
+    CHECK(buttons.handle(juce::MidiMessage::controllerEvent(1, 102, 127)) == OctaveButtons::Result::none); // nothing learned yet
+
+    buttons.learn(-1);
+    CHECK(buttons.handle(juce::MidiMessage::controllerEvent(1, 1, 64)) == OctaveButtons::Result::none);  // the mod wheel is never learned
+    CHECK(buttons.handle(juce::MidiMessage::noteOn(1, 60, 1.0f)) == OctaveButtons::Result::none);       // nor a key
+    CHECK(buttons.handle(juce::MidiMessage::controllerEvent(1, 102, 127)) == OctaveButtons::Result::learned);
+    CHECK(buttons.getLearning() == 0);
+    buttons.learn(1);
+    CHECK(buttons.handle(juce::MidiMessage::controllerEvent(1, 103, 0)) == OctaveButtons::Result::none); // a release doesn't teach
+    CHECK(buttons.handle(juce::MidiMessage::controllerEvent(1, 103, 127)) == OctaveButtons::Result::learned);
+
+    CHECK(buttons.handle(juce::MidiMessage::controllerEvent(1, 102, 127)) == OctaveButtons::Result::octaveDown);
+    CHECK(buttons.handle(juce::MidiMessage::controllerEvent(1, 102, 0)) == OctaveButtons::Result::swallowed);
+    CHECK(buttons.handle(juce::MidiMessage::controllerEvent(1, 103, 100)) == OctaveButtons::Result::octaveUp);
+    CHECK(buttons.handle(juce::MidiMessage::controllerEvent(2, 103, 100)) == OctaveButtons::Result::none); // another channel
+    CHECK(OctaveButtons::describe(buttons.getBinding(1)) == "CC 103 on channel 1");
+
+    // Program changes work too, and one message can't be both buttons.
+    buttons.learn(-1);
+    CHECK(buttons.handle(juce::MidiMessage::programChange(1, 7)) == OctaveButtons::Result::learned);
+    buttons.learn(1);
+    CHECK(buttons.handle(juce::MidiMessage::programChange(1, 7)) == OctaveButtons::Result::learned);
+    CHECK(buttons.getBinding(-1) == 0);
+    CHECK(OctaveButtons::describe(buttons.getBinding(1)) == "Program 7 on channel 1");
 }

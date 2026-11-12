@@ -117,6 +117,22 @@ TEST_CASE("Engine: the pitch wheel bends by the set range", "[engine]")
     }
 }
 
+TEST_CASE("Engine: transpose shifts incoming notes, and a held key still lets go", "[engine]")
+{
+    Harness h;
+    h.params.transpose = 1;
+    h.engine.setParams(h.params);
+    h.engine.handleMidi(juce::MidiMessage::noteOn(1, 57, 1.0f));
+    CHECK(std::abs(test::cents(test::measureFrequency(lastHalf(h.render(1.0)), kRate), 440.0)) < 0.3); // A3 played as A4
+
+    // Change the transposition while the key is down: the key's release still ends its note.
+    h.params.transpose = -1;
+    h.engine.setParams(h.params);
+    h.engine.handleMidi(juce::MidiMessage::noteOff(1, 57));
+    h.render(1.0);
+    CHECK(h.engine.getNumActiveVoices() == 0);
+}
+
 TEST_CASE("Engine: the mod wheel brings in vibrato", "[engine]")
 {
     Harness h;

@@ -114,17 +114,17 @@ const std::vector<Preset>& factoryPresets()
              lead({ { id::osc2Freq, 12 }, { id::osc2Fine, 5 }, { id::mixOsc1, 1.0f }, { id::mixOsc2, 0.85f }, { id::mixSub, 0.4f },
                     { id::lpCutoff, 84 }, { id::lpRes, 0.22f }, { id::lpEnv, 0.35f }, { id::lpKey, kHalf }, { id::fEnvA, 0.05f },
                     { id::fEnvD, 0.5f }, { id::fEnvS, 0.55f }, { id::fEnvR, 0.35f }, { id::aEnvA, 0.08f }, { id::aEnvR, 0.3f },
-                    { id::glideRate, 0.42f }, { id::dist, 0.15f }, { id::fxBType, kSpring }, { id::fxBMix, 0.12f }, { id::voiceVol, 0.7f } })),
+                    { id::glideRate, 0.42f }, { id::dist, 0.15f }, { id::fxBType, kSpring }, { id::fxBMix, 0.12f }, { id::voiceVol, 0.77f } })),
         make("Lucky Glide", "Lead",
              lead({ { id::osc1Shape, 1.0f }, { id::osc2Shape, 1.0f }, { id::osc2Fine, 6 }, { id::mixOsc2, 0.8f }, { id::lpCutoff, 92 },
                     { id::lpRes, 0.15f }, { id::lpEnv, 0.2f }, { id::fEnvA, 0.2f }, { id::fEnvD, 0.55f }, { id::fEnvS, 0.6f },
                     { id::glideMode, kFixedRate }, { id::glideRate, 0.52f }, { id::aEnvA, 0.15f }, { id::aEnvR, 0.42f },
-                    { id::fxAType, kDdl }, { id::fxAMix, 0.22f }, { id::fxAP1, 0.72f }, { id::fxAP2, 0.4f }, { id::voiceVol, 0.6f } })),
+                    { id::fxAType, kDdl }, { id::fxAMix, 0.22f }, { id::fxAP1, 0.72f }, { id::fxAP2, 0.4f }, { id::voiceVol, 0.38f } })),
         make("Sun Brass", "Lead",
              lead({ { id::osc2Fine, 4 }, { id::mixOsc2, 0.9f }, { id::lpCutoff, 70 }, { id::lpRes, 0.1f }, { id::lpEnv, 0.55f },
                     { id::lpKey, kHalf }, { id::fEnvA, 0.4f }, { id::fEnvD, 0.55f }, { id::fEnvS, 0.6f }, { id::fEnvR, 0.38f },
                     { id::aEnvA, 0.2f }, { id::aEnvR, 0.35f }, { id::glideRate, 0.35f }, { id::fxBType, kRoom }, { id::fxBMix, 0.18f },
-                    { id::voiceVol, 0.8f } })),
+                    { id::voiceVol, 0.69f } })),
 
         // ---- basses -------------------------------------------------------------------------------
         make("Thick Six", "Bass",
@@ -163,11 +163,11 @@ const std::vector<Preset>& factoryPresets()
         make("Pedal Thunder", "Bass",
              bass({ { id::osc2Fine, 10 }, { id::mixOsc2, 1.0f }, { id::mixSub, 0.6f }, { id::lpCutoff, 60 }, { id::lpRes, 0.1f },
                     { id::lpEnv, 0.2f }, { id::lpKey, kOff }, { id::fEnvD, 0.6f }, { id::fEnvS, 0.6f }, { id::aEnvR, 0.38f },
-                    { id::dist, 0.1f }, { id::voiceVol, 0.7f } })),
+                    { id::dist, 0.1f }, { id::voiceVol, 0.60f } })),
         make("Mono Punch", "Bass",
              bass({ { id::osc2Shape, 1.0f }, { id::osc2Pw, 0.5f }, { id::mixOsc2, 0.8f }, { id::mixSub, 0.5f }, { id::lpCutoff, 56 },
                     { id::lpRes, 0.3f }, { id::lpEnv, 0.65f }, { id::fEnvD, 0.34f }, { id::fEnvS, 0.1f }, { id::aEnvD, 0.55f },
-                    { id::aEnvS, 0.7f }, { id::voiceVol, 0.8f } })),
+                    { id::aEnvS, 0.7f }, { id::voiceVol, 0.70f } })),
         make("Funk Squelch", "Bass",
              bass({ { id::osc1Shape, 1.0f }, { id::mixOsc2, 0.0f }, { id::mixSub, 0.35f }, { id::lpCutoff, 50 }, { id::lpRes, 0.62f },
                     { id::lpEnv, 0.7f }, { id::fEnvD, 0.3f }, { id::fEnvS, 0.0f }, { id::aEnvD, 0.5f }, { id::aEnvS, 0.6f },
@@ -175,7 +175,7 @@ const std::vector<Preset>& factoryPresets()
         make("Low Rider", "Bass",
              bass({ { id::mixOsc2, 0.7f }, { id::osc2Fine, 7 }, { id::lpCutoff, 66 }, { id::lpRes, 0.35f }, { id::lpEnv, 0.4f },
                     { id::fEnvD, 0.5f }, { id::fEnvS, 0.3f }, { id::keyMode, kLast }, { id::glideOn, 1 }, { id::glideMode, kFixedRate },
-                    { id::glideRate, 0.45f }, { id::dist, 0.3f }, { id::voiceVol, 0.7f } })),
+                    { id::glideRate, 0.45f }, { id::dist, 0.3f }, { id::voiceVol, 1.00f } })),
 
         // ---- pads and keys ------------------------------------------------------------------------
         make("Glass Pad", "Pad",
@@ -197,7 +197,7 @@ const std::vector<Preset>& factoryPresets()
              { { id::mixOsc1, 0 }, { id::mixOsc2, 0 }, { id::mixNoise, 1.0f }, { id::lpCutoff, 84 }, { id::lpRes, 0.78f }, { id::lpEnv, 0 },
                { id::lpVel, 0 }, { id::lfoLp, 1 }, { id::lfoFreq1, 0 }, { id::lfoFreq2, 0 }, { id::lfoAmt, 0.3f }, { id::lfoRate, 0.2f },
                { id::aEnvA, 0.6f }, { id::aEnvS, 1 }, { id::aEnvR, 0.65f }, { id::panSpread, 0.8f }, { id::fxBType, kHall },
-               { id::fxBMix, 0.35f }, { id::fxBP1, 0.65f }, { id::voiceVol, 0.8f } }),
+               { id::fxBMix, 0.35f }, { id::fxBP1, 0.65f }, { id::voiceVol, 0.98f } }),
         make("Brass Section", "Keys",
              { { id::osc2Fine, 6 }, { id::lpCutoff, 72 }, { id::lpRes, 0.1f }, { id::lpEnv, 0.5f }, { id::fEnvA, 0.36f }, { id::fEnvD, 0.55f },
                { id::fEnvS, 0.55f }, { id::fEnvR, 0.4f }, { id::aEnvA, 0.25f }, { id::aEnvS, 1 }, { id::aEnvR, 0.35f }, { id::panSpread, 0.5f },
@@ -252,8 +252,24 @@ juce::String PresetManager::getCurrentName() const
     return presets[static_cast<size_t>(current)].name;
 }
 
+namespace
+{
+juce::File& userFolderOverride()
+{
+    static juce::File folder;
+    return folder;
+}
+} // namespace
+
+void PresetManager::setUserFolderForTests(const juce::File& folder)
+{
+    userFolderOverride() = folder;
+}
+
 juce::File PresetManager::userFolder()
 {
+    if (userFolderOverride() != juce::File())
+        return userFolderOverride();
     return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Seer").getChildFile("Presets");
 }
 

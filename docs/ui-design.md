@@ -18,16 +18,18 @@ The artwork, names and layout are our own, and the hardware's panel graphics are
 
 ## Window
 
-Design size 1280 × 812, key strip included; scaled as a whole from 70 % to 150 % by dragging the
-window's corner.
+Design size 1280 × 812, key strip included; scaled as a whole from 70 % to 200 %, by dragging the
+window's corner or from ☰ → Window size. The first time it opens as large as fits the screen
+comfortably, up to 125 %. The size is kept in `%APPDATA%/Seer/Seer Preferences.settings`, shared by
+every instance (not in the song).
 
 ```
-header   ☰ menu · status chip (voices, quality, bend range) · ◀ preset ▶
+header   ☰ menu · status chip (MIDI lamp, inputs, last message, voices, quality) · ◀ preset ▶
 title    S E E R
 row 1    LFO · Poly Mod · Oscillator 1 · Oscillator 2 · Drift (slop, pan) · Mixer
 row 2    Low-pass (large cutoff knob) · High-pass · Filter envelope · Amp envelope
 row 3    Voice (unison) · Glide · Aftertouch · Output (distortion, level) · Effect A · Effect B
-keys     pitch wheel · mod wheel · master volume · master tune · 49 keys, C2–C6
+keys     pitch wheel · mod wheel · octave − readout + · master volume · master tune · 49 keys, C2–C6
 ```
 
 The rows follow the signal: sources, then filters and envelopes, then how it plays and where it
@@ -41,14 +43,17 @@ goes.
 | Large knob, 88 px | the same with a brushed-silver cap | low-pass cutoff only |
 | Fader | recessed slot with a printed scale, a dark cap with a cream line | the two ADSRs |
 | LED | red lamp in a chrome bezel, lit when on | switches and modulation destinations |
-| Dropdown | recessed window, mono capitals, caption below | shapes, modes, effect types |
-| Preset display | red LED-style readout between ◀ ▶ | preset name |
+| Display selector | recessed display window, the choice in red lit capitals, small ◀ ▶ inside; click the name for the list | LFO shape, voices, key mode, glide mode, effect types |
+| Lamp selector | a column of LEDs with their names | the filters' keyboard tracking (Off, Half, Full) |
+| Preset display | red LED-style readout between ◀ ▶ | preset name; click it for the browser |
+| Octave buttons | two small dark keys around a red readout | transposition; right-click to learn a keyboard's button |
 
 Interaction is the same as in Keys: drag up or down, Shift for fine steps, double-click to reset,
 scroll wheel, arrow keys. A control's caption turns into its value while the mouse is over it; the printed scales don't
 light up, so that readout and the pointer are how a value is read.
 A panel's frame takes its section's colour while one of its controls moves.
-Dropdowns sit above the knobs in their panel, so each row fits on one line.
+Display selectors sit above the knobs in their panel, so each row fits on one line. Menus (the
+selectors' lists, ☰) use the same look: a lamp marks the chosen item, headings in small capitals.
 
 ## Section colours and the light field
 
@@ -63,22 +68,33 @@ Dropdowns sit above the knobs in their panel, so each row fits on one line.
 
 ## Menu (☰)
 
-Voice count (6, 8, 10, 12), quality (2× or 4× oversampling), pitch-wheel range, transpose, Save
-preset, Open the preset folder. Master volume and tune are the two knobs beside the wheels.
+Window size; voice count (6, 8, 10, 12); quality (2× or 4× oversampling); Your keyboard: pitch-wheel
+range, mod-wheel depth, transpose, learning the octave buttons; Presets; Save preset. Master volume
+and tune are the two knobs in the key strip.
 
 ## Header
 
-The status line shows a MIDI lamp, the MIDI inputs (Standalone), how many voices are sounding,
-the quality and the bend range. The preset readout steps with its arrows; clicking the name opens
-the list, grouped into Leads, Basses, Pads, Keys and Yours.
+The status line shows a MIDI lamp, the MIDI inputs (Standalone), the last message received, how
+many voices are sounding, and the quality. The preset readout steps with its arrows; clicking the
+name opens the preset browser.
+
+## Preset browser
+
+A panel that opens under the readout, over a dimmed window (a click outside closes it). Left: the
+factory groups (All, Leads, Basses, Pads, Keys) and the user's banks, one per folder in
+`Documents/Seer/Presets`. Right: the group's presets in three columns; the current one has a lamp.
+Clicking a preset loads it and leaves the browser open. Footer: New bank, Save current sound (name
+and bank), Open folder. Right-click a user preset to delete it.
 
 ## How it is built
 
 | Part | Class | File |
 |---|---|---|
-| Colours, fonts, knob / fader / LED / dropdown drawing | `SeerLookAndFeel` | `source/ui/SeerLookAndFeel.*` |
+| Colours, fonts, knob / fader / LED / menu drawing | `SeerLookAndFeel` | `source/ui/SeerLookAndFeel.*` |
 | A section plate that lays out its own controls | `Panel` | `source/ui/Controls.*` |
-| Knob, fader, switch, dropdown | `KnobControl`, `FaderControl`, `LedToggle`, `ChoiceControl` | `source/ui/Controls.*` |
+| Knob, fader, switch, selectors | `KnobControl`, `FaderControl`, `LedToggle`, `ChoiceControl`, `LedSelector` | `source/ui/Controls.*` |
+| Octave buttons | `OctaveControl` (and `OctaveButtons` in the engine for the learned MIDI) | `source/ui/Controls.*` |
+| Preset browser | `PresetBrowser` | `source/ui/PresetBrowser.*` |
 | Preset readout, status line, wheels, keys | `PresetDisplay`, `StatusChip`, `WheelControl`, `SeerKeyboard` | `source/ui/Controls.*` |
 | The light, the grain and the wood | `LightField`, `Overlay` | `source/ui/Controls.*` |
 | The window: which control goes on which panel | `SeerEditor` | `source/PluginEditor.*` |

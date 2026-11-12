@@ -115,7 +115,9 @@ private:
     Apvts::ButtonAttachment attachment;
 };
 
-/// A dropdown in a recessed window, with a caption under it.
+/// A choice in a recessed display window, in red lit letters like the preset readout, with small
+/// arrows either side to step through the options. Clicking the name opens the whole list; the
+/// scroll wheel and the arrow keys step too.
 class ChoiceControl final : public juce::Component
 {
 public:
@@ -123,14 +125,84 @@ public:
 
     ChoiceControl(Apvts& state, const juce::String& parameterId, juce::String caption);
 
-    juce::ComboBox box;
-    void resized() override;
     void paint(juce::Graphics&) override;
+    void mouseMove(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
+    void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+    bool keyPressed(const juce::KeyPress&) override;
 
 private:
+    int zoneAt(juce::Point<int> position) const; ///< -1 the left arrow, +1 the right arrow, 0 the name
+    void step(int delta);
+    void choose(int newIndex);
+    void showList();
+
     juce::String caption;
-    std::unique_ptr<Apvts::ComboBoxAttachment> attachment;
+    juce::StringArray options;
+    int index = 0, hoverZone = 2; // 2: the mouse is elsewhere
+    juce::ParameterAttachment attachment; // declared last: it's destroyed first
 };
+
+/// A choice with only a few options, as a column of lamps with their names (the filters' keyboard
+/// tracking: Off, Half, Full). Click a name to choose it.
+class LedSelector final : public juce::Component
+{
+public:
+    static constexpr int kRow = 16;
+
+    LedSelector(Apvts& state, const juce::String& parameterId, juce::String caption);
+    int getPreferredHeight() const noexcept { return options.size() * kRow + 3 + 11; }
+    int getPreferredWidth() const;
+
+    void paint(juce::Graphics&) override;
+    void mouseMove(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
+
+private:
+    int rowAt(juce::Point<int> position) const;
+
+    juce::String caption;
+    juce::StringArray options;
+    int index = 0, hover = -1;
+    juce::ParameterAttachment attachment;
+};
+
+/// The key strip's octave buttons: a readout of the transposition between a down and an up button.
+/// Right-click a button to teach it the matching button on your MIDI keyboard (for keyboards whose
+/// octave buttons send a message instead of shifting their notes).
+class OctaveControl final : public juce::Component, public juce::SettableTooltipClient, private juce::Timer
+{
+public:
+    OctaveControl(Apvts& state, const juce::String& transposeId);
+
+    /// The window connects these to the processor's OctaveButtons.
+    std::function<void(int direction)> onLearn;  ///< start listening for that button (0: stop)
+    std::function<void(int direction)> onForget; ///< forget that button
+    std::function<juce::String(int direction)> describe; ///< the learned message, or empty
+
+    /// Shows which button is listening (0: none). The button blinks while it waits.
+    void setLearning(int direction);
+    int getLearning() const noexcept { return learning; }
+
+    void paint(juce::Graphics&) override;
+    void mouseMove(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
+
+private:
+    void timerCallback() override;
+    juce::Rectangle<int> buttonArea(int direction) const;
+    juce::Rectangle<int> displayArea() const;
+    int buttonAt(juce::Point<int> position) const;
+
+    int value = 0, hover = 0, learning = 0;
+    bool blink = false;
+    juce::RangedAudioParameter& parameter;
+    juce::ParameterAttachment attachment;
+};
+
 
 /// The square menu button.
 class MenuButton final : public juce::Button

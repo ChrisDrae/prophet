@@ -9,6 +9,12 @@ float textWidth(const juce::Font& font, const juce::String& text)
     return juce::GlyphArrangement::getStringWidth(font, text.toUpperCase());
 }
 
+float textWidthOf(const juce::Font& font, const juce::String& text)
+{
+    // Letter spacing adds a little after every letter.
+    return textWidth(font, text) + font.getExtraKerningFactor() * font.getHeight();
+}
+
 juce::String valueText(const juce::RangedAudioParameter& parameter)
 {
     return parameter.getCurrentValueAsText();
@@ -300,25 +306,318 @@ int LedToggle::getPreferredWidth() const
     return juce::roundToInt(textWidth(labelFont(9.5f, 0.12f), getButtonText())) + 22;
 }
 
-ChoiceControl::ChoiceControl(Apvts& state, const juce::String& parameterId, juce::String c) : caption(std::move(c))
+ChoiceControl::ChoiceControl(Apvts& state, const juce::String& parameterId, juce::String cap)
+    : caption(std::move(cap)),
+      attachment(*state.getParameter(parameterId), [this](float plain) { index = juce::roundToInt(plain); repaint(); })
 {
     if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(state.getParameter(parameterId)))
-        for (int i = 0; i < choice->choices.size(); ++i)
-            box.addItem(choice->choices[i].toUpperCase(), i + 1);
-    box.setTitle(caption);
-    addAndMakeVisible(box);
-    attachment = std::make_unique<Apvts::ComboBoxAttachment>(state, parameterId, box);
-    setPaintingIsUnclipped(true);
+        options = choice->choices;
+    setTitle(caption);
+    setWantsKeyboardFocus(true);
+    setPaintingIsUnclipped(true); // the caption may be wider than the window
+    attachment.sendInitialUpdate();
 }
 
-void ChoiceControl::resized()
+int ChoiceControl::zoneAt(juce::Point<int> position) const
 {
-    box.setBounds(0, 0, getWidth(), 26);
+    if (position.y > 26)
+        return 2;
+    return position.x < 16 ? -1 : position.x >= getWidth() - 16 ? 1 : 0;
+}
+
+void ChoiceControl::step(int delta)
+{
+    if (!options.isEmpty())
+        choose((index + delta + options.size()) % options.size());
+}
+
+void ChoiceControl::choose(int newIndex)
+{
+    if (newIndex != index)
+        attachment.setValueAsCompleteGesture(static_cast<float>(newIndex));
+}
+
+void ChoiceControl::showList()
+{
+    juce::PopupMenu menu;
+    for (int i = 0; i < options.size(); ++i)
+        menu.addItem(i + 1, options[i], true, i == index);
+    juce::Component::SafePointer<ChoiceControl> safe(this);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMinimumWidth(getWidth()).withStandardItemHeight(26),
+                       [safe](int result)
+                       {
+                           if (safe != nullptr && result > 0)
+                               safe->choose(result - 1);
+                       });
 }
 
 void ChoiceControl::paint(juce::Graphics& g)
 {
+    const auto window = getLocalBounds().withHeight(26).toFloat().reduced(0.5f);
+    g.setColour(colours::display);
+    g.fillRoundedRectangle(window, 3.0f);
+    // The recess: a shadow along the top edge and a faint highlight along the bottom.
+    g.setGradientFill(juce::ColourGradient::vertical(juce::Colours::black.withAlpha(0.85f), window.getY(), juce::Colours::transparentBlack, window.getY() + 7.0f));
+    g.fillRoundedRectangle(window.withHeight(7.0f), 3.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.06f));
+    g.fillRect(window.reduced(3.0f, 0.0f).withTop(window.getBottom() - 1.0f));
+    g.setColour(hoverZone != 2 || hasKeyboardFocus(false) ? colours::fg.withAlpha(0.55f) : colours::frame);
+    g.drawRoundedRectangle(window, 3.0f, 1.0f);
+
+    // The arrows.
+    for (const int side : { -1, 1 })
+    {
+        const float x = side < 0 ? window.getX() + 8.5f : window.getRight() - 8.5f, y = window.getCentreY();
+        juce::Path arrow;
+        arrow.addTriangle(x - 2.5f * static_cast<float>(side), y - 3.5f, x - 2.5f * static_cast<float>(side), y + 3.5f, x + 3.0f * static_cast<float>(side), y);
+        g.setColour(colours::fg.withAlpha(hoverZone == side ? 0.95f : 0.4f));
+        g.fillPath(arrow);
+    }
+
+    // The choice, in lit red letters (smaller if a long name needs it).
+    const auto text = options[index].toUpperCase();
+    const auto area = window.reduced(16.0f, 0.0f);
+    auto font = valueFont(11.5f, 0.07f);
+    for (float height = 11.5f; height > 8.0f && textWidthOf(font, text) > area.getWidth(); height -= 0.5f)
+        font = valueFont(height, 0.05f);
+    drawCaps(g, text, area.translated(0.0f, 0.5f).expanded(1.0f), font, colours::ledOn.withAlpha(hoverZone == 0 ? 0.35f : 0.22f));
+    drawCaps(g, text, area, font, colours::ledOn);
+
     drawCaps(g, caption, juce::Rectangle<float>(-20.0f, 30.0f, static_cast<float>(getWidth()) + 40.0f, 11.0f), labelFont(8.5f, 0.14f), colours::fgDim);
+}
+
+void ChoiceControl::mouseMove(const juce::MouseEvent& e)
+{
+    if (const int zone = zoneAt(e.getPosition()); zone != hoverZone)
+    {
+        hoverZone = zone;
+        setMouseCursor(zone == 2 ? juce::MouseCursor::NormalCursor : juce::MouseCursor::PointingHandCursor);
+        repaint();
+    }
+}
+
+void ChoiceControl::mouseExit(const juce::MouseEvent&)
+{
+    hoverZone = 2;
+    repaint();
+}
+
+void ChoiceControl::mouseUp(const juce::MouseEvent& e)
+{
+    if (!e.mouseWasClicked())
+        return;
+    switch (zoneAt(e.getPosition()))
+    {
+        case -1: step(-1); break;
+        case 1: step(1); break;
+        case 0: showList(); break;
+        default: break;
+    }
+}
+
+void ChoiceControl::mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails& wheel)
+{
+    if (wheel.deltaY != 0.0f)
+        step(wheel.deltaY > 0.0f ? -1 : 1);
+}
+
+bool ChoiceControl::keyPressed(const juce::KeyPress& key)
+{
+    if (key == juce::KeyPress::leftKey || key == juce::KeyPress::upKey)
+        step(-1);
+    else if (key == juce::KeyPress::rightKey || key == juce::KeyPress::downKey)
+        step(1);
+    else if (key == juce::KeyPress::returnKey || key == juce::KeyPress::spaceKey)
+        showList();
+    else
+        return false;
+    return true;
+}
+
+LedSelector::LedSelector(Apvts& state, const juce::String& parameterId, juce::String cap)
+    : caption(std::move(cap)),
+      attachment(*state.getParameter(parameterId), [this](float plain) { index = juce::roundToInt(plain); repaint(); })
+{
+    if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(state.getParameter(parameterId)))
+        options = choice->choices;
+    setTitle(caption);
+    setPaintingIsUnclipped(true);
+    attachment.sendInitialUpdate();
+}
+
+int LedSelector::getPreferredWidth() const
+{
+    float widest = textWidthOf(labelFont(8.5f, 0.14f), caption);
+    for (const auto& option : options)
+        widest = std::max(widest, textWidthOf(labelFont(9.5f, 0.12f), option) + 19.0f);
+    return juce::roundToInt(widest) + 4;
+}
+
+int LedSelector::rowAt(juce::Point<int> position) const
+{
+    const int row = position.y / kRow;
+    return row >= 0 && row < options.size() ? row : -1;
+}
+
+void LedSelector::paint(juce::Graphics& g)
+{
+    for (int i = 0; i < options.size(); ++i)
+    {
+        const auto row = juce::Rectangle<float>(0.0f, static_cast<float>(i * kRow), static_cast<float>(getWidth()), static_cast<float>(kRow));
+        drawLed(g, { 8.0f, row.getCentreY() }, 8.0f, i == index);
+        drawCaps(g, options[i], row.withTrimmedLeft(19.0f), labelFont(9.5f, 0.12f), colours::fg.withAlpha(i == hover ? 1.0f : 0.85f),
+                 juce::Justification::centredLeft);
+    }
+    drawCaps(g, caption, juce::Rectangle<float>(-10.0f, static_cast<float>(options.size() * kRow + 3), static_cast<float>(getWidth()) + 20.0f, 11.0f),
+             labelFont(8.5f, 0.14f), colours::fgDim);
+}
+
+void LedSelector::mouseMove(const juce::MouseEvent& e)
+{
+    if (const int row = rowAt(e.getPosition()); row != hover)
+    {
+        hover = row;
+        setMouseCursor(row >= 0 ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
+        repaint();
+    }
+}
+
+void LedSelector::mouseExit(const juce::MouseEvent&)
+{
+    hover = -1;
+    repaint();
+}
+
+void LedSelector::mouseUp(const juce::MouseEvent& e)
+{
+    if (const int row = rowAt(e.getPosition()); e.mouseWasClicked() && row >= 0 && row != index)
+        attachment.setValueAsCompleteGesture(static_cast<float>(row));
+}
+
+OctaveControl::OctaveControl(Apvts& state, const juce::String& transposeId)
+    : parameter(*state.getParameter(transposeId)),
+      attachment(parameter, [this](float plain) { value = juce::roundToInt(plain); repaint(); })
+{
+    setTitle("Octave");
+    setPaintingIsUnclipped(true);
+    attachment.sendInitialUpdate();
+}
+
+juce::Rectangle<int> OctaveControl::displayArea() const
+{
+    return { (getWidth() - 56) / 2, 0, 56, 26 };
+}
+
+juce::Rectangle<int> OctaveControl::buttonArea(int direction) const
+{
+    const int w = 30, gap = 6;
+    return { getWidth() / 2 + (direction < 0 ? -gap / 2 - w : gap / 2), 34, w, 24 };
+}
+
+int OctaveControl::buttonAt(juce::Point<int> position) const
+{
+    return buttonArea(-1).contains(position) ? -1 : buttonArea(1).contains(position) ? 1 : 0;
+}
+
+void OctaveControl::setLearning(int direction)
+{
+    learning = direction;
+    blink = true;
+    if (direction != 0)
+        startTimerHz(3);
+    else
+        stopTimer();
+    repaint();
+}
+
+void OctaveControl::timerCallback()
+{
+    blink = !blink;
+    repaint();
+}
+
+void OctaveControl::paint(juce::Graphics& g)
+{
+    // The readout: the transposition in octaves.
+    const auto window = displayArea().toFloat().reduced(0.5f);
+    g.setColour(colours::display);
+    g.fillRoundedRectangle(window, 3.0f);
+    g.setGradientFill(juce::ColourGradient::vertical(juce::Colours::black.withAlpha(0.85f), window.getY(), juce::Colours::transparentBlack, window.getY() + 7.0f));
+    g.fillRoundedRectangle(window.withHeight(7.0f), 3.0f);
+    g.setColour(colours::frame);
+    g.drawRoundedRectangle(window, 3.0f, 1.0f);
+    const auto text = value == 0 ? juce::String("0") : (value > 0 ? "+" : juce::String::fromUTF8("\xe2\x88\x92")) + juce::String(std::abs(value));
+    drawCaps(g, text, window, valueFont(14.0f, 0.04f), value == 0 ? colours::ledOn.withAlpha(0.55f) : colours::ledOn);
+
+    for (const int direction : { -1, 1 })
+    {
+        const auto area = buttonArea(direction).toFloat();
+        const bool listening = learning == direction;
+        g.setColour(juce::Colours::black.withAlpha(0.55f));
+        g.fillRoundedRectangle(area.translated(0.0f, 2.0f), 3.0f);
+        g.setGradientFill(juce::ColourGradient::vertical(juce::Colour(0xff3a3d43), juce::Colour(0xff17181b), area));
+        g.fillRoundedRectangle(area, 3.0f);
+        g.setColour(listening && blink ? colours::ledOn : hover == direction ? colours::fg.withAlpha(0.7f) : colours::frame);
+        g.drawRoundedRectangle(area.reduced(0.5f), 3.0f, listening ? 1.6f : 1.0f);
+        const auto c = area.getCentre();
+        g.setColour(colours::fg);
+        g.fillRect(juce::Rectangle<float>(10.0f, 1.8f).withCentre(c));
+        if (direction > 0)
+            g.fillRect(juce::Rectangle<float>(1.8f, 10.0f).withCentre(c));
+    }
+
+    const auto captionArea = juce::Rectangle<float>(-30.0f, 62.0f, static_cast<float>(getWidth()) + 60.0f, 11.0f);
+    if (learning != 0)
+        drawCaps(g, learning < 0 ? "Press octave down" : "Press octave up", captionArea, labelFont(8.5f, 0.12f), colours::ledOn);
+    else
+        drawCaps(g, "Octave", captionArea, labelFont(8.5f, 0.14f), colours::fgDim);
+}
+
+void OctaveControl::mouseMove(const juce::MouseEvent& e)
+{
+    if (const int over = buttonAt(e.getPosition()); over != hover)
+    {
+        hover = over;
+        setMouseCursor(over != 0 ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
+        if (over != 0 && describe)
+        {
+            const auto learned = describe(over);
+            setTooltip(learned.isEmpty() ? juce::String("Right-click to teach this button to your keyboard's octave button")
+                                         : "Your keyboard's " + learned + ". Right-click to change");
+        }
+        repaint();
+    }
+}
+
+void OctaveControl::mouseExit(const juce::MouseEvent&)
+{
+    hover = 0;
+    repaint();
+}
+
+void OctaveControl::mouseUp(const juce::MouseEvent& e)
+{
+    const int direction = buttonAt(e.getPosition());
+    if (!e.mouseWasClicked() || direction == 0)
+        return;
+    if (e.mods.isPopupMenu())
+    {
+        const auto name = juce::String(direction < 0 ? "octave down" : "octave up");
+        const auto learned = describe ? describe(direction) : juce::String();
+        juce::PopupMenu menu;
+        menu.addSectionHeader(learned.isEmpty() ? "Keyboard button: none" : "Keyboard button: " + learned);
+        juce::Component::SafePointer<OctaveControl> safe(this);
+        if (learning == direction)
+            menu.addItem("Stop listening", [safe] { if (safe != nullptr && safe->onLearn) safe->onLearn(0); });
+        else
+            menu.addItem("Learn: press your keyboard's " + name + " button next", [safe, direction] { if (safe != nullptr && safe->onLearn) safe->onLearn(direction); });
+        menu.addItem("Forget", learned.isNotEmpty(), false, [safe, direction] { if (safe != nullptr && safe->onForget) safe->onForget(direction); });
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this));
+        return;
+    }
+    const float next = juce::jlimit(-2.0f, 2.0f, static_cast<float>(value + direction));
+    if (juce::roundToInt(next) != value)
+        attachment.setValueAsCompleteGesture(next);
 }
 
 // =================================================================================================
@@ -505,7 +804,8 @@ void WheelControl::mouseDown(const juce::MouseEvent&)
 void WheelControl::mouseDrag(const juce::MouseEvent& e)
 {
     const float range = spring ? 2.0f : 1.0f;
-    const float moved = -static_cast<float>(e.getDistanceFromDragStartY()) / (static_cast<float>(getHeight()) - 30.0f) * range;
+    // Slow on purpose: a mouse is far twitchier than a thumb on a real wheel.
+    const float moved = -static_cast<float>(e.getDistanceFromDragStartY()) / 200.0f * range;
     value = std::clamp(dragStart + moved, spring ? -1.0f : 0.0f, 1.0f);
     if (onMove)
         onMove(value);

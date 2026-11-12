@@ -62,6 +62,8 @@ public:
     bool createBank(const juce::String& name);
     static inline const juce::String kFactoryBank { "Factory" }, kDefaultBank { "My Sounds" };
     static juce::File userFolder();
+    /// Tests only: keep user presets somewhere else (an empty File goes back to the real folder).
+    static void setUserFolderForTests(const juce::File& folder);
     void rescanUserPresets();
 
     /// Restores the current preset's name after the host loads a session (no parameters change).

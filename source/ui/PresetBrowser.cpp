@@ -45,6 +45,14 @@ void PresetBrowser::refresh(bool followCurrent)
     selectGroup(pick);
 }
 
+void PresetBrowser::showBank(const juce::String& bank)
+{
+    refresh(false);
+    for (int i = 0; i < static_cast<int>(groups.size()); ++i)
+        if (!groups[static_cast<size_t>(i)].heading && groups[static_cast<size_t>(i)].bank == bank)
+            selectGroup(i);
+}
+
 juce::String PresetBrowser::getSelectedUserBank() const
 {
     const auto& g = groups[static_cast<size_t>(selectedGroup)];
@@ -110,7 +118,7 @@ juce::Rectangle<int> PresetBrowser::actionArea(Action action) const
 void PresetBrowser::paint(juce::Graphics& g)
 {
     const auto bounds = getLocalBounds().toFloat().reduced(0.5f);
-    g.setColour(juce::Colour(0xf80a0b0d));
+    g.setColour(juce::Colour(0xff0a0b0d));
     g.fillRoundedRectangle(bounds, 6.0f);
     g.setColour(colours::frame);
     g.drawRoundedRectangle(bounds, 6.0f, 1.0f);

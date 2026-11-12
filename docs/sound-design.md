@@ -129,12 +129,13 @@ The LFO restarts when a key is pressed with no other key held. **[M]**
 
 ### Player settings (presets leave these alone)
 
-| ID | Control | Range | Default |
-|---|---|---|---|
+| ID | Control | Range | Default | Notes |
+|---|---|---|---|---|
 | `masterVol` | Master volume | −60…+6 dB | 0 dB |
 | `masterTune` | Master tune | −50…+50 cents | 0 |
-| `transpose` | Transpose | −2…+2 octaves | 0 |
+| `transpose` | Transpose | −2…+2 octaves | 0 | shifts incoming notes, so key tracking follows; a held key still releases the note it started |
 | `bendRange` | Pitch wheel range | 0–12 semitones | 2 |
+| `wheelDepth` | Mod wheel depth | Subtle / Normal / Deep / Full | Normal | the LFO amount the wheel adds at the top: 0.15, 0.3, 0.6, 1 (the hardware's is Full). Normal is a vibrato of about a semitone |
 | `voices` | Voice count | 6 / 8 / 10 / 12 | 6 |
 | `quality` | Oversampling | 2× / 4× | 2× |
 

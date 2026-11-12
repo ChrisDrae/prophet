@@ -1,9 +1,9 @@
 // SeerUiSnapshot: renders the plugin window into an image without a host.
 //
-//     SeerUiSnapshot.exe <out.png|out.jpg> [--demo] [--preset <n>] [--scale <factor>] [--set <id>=<value>]... [--bench]
+//     SeerUiSnapshot.exe <out.png|out.jpg> [--demo] [--browser] [--preset <n>] [--scale <factor>] [--set <id>=<value>]... [--bench]
 //
 // With --demo, a chord is played through the processor first, so the keys show the notes and the
-// light blooms. --preset loads a factory preset (0 = Butter Lead). --set changes a parameter
+// light blooms. --browser opens the preset browser. --preset loads a factory preset (0 = Butter Lead). --set changes a parameter
 // (plain value, e.g. --set lpCutoff=90). --bench times a repaint. The docs' screenshots are made
 // with this tool.
 
@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
         return 1;
     }
     const juce::File out = juce::File::getCurrentWorkingDirectory().getChildFile(argv[1]);
-    bool demo = false, bench = false;
+    bool demo = false, bench = false, browser = false;
     int preset = -1;
     float scale = 2.0f;
     juce::StringPairArray settings;
@@ -31,6 +31,8 @@ int main(int argc, char* argv[])
             demo = true;
         else if (arg == "--bench")
             bench = true;
+        else if (arg == "--browser")
+            browser = true;
         else if (arg == "--preset" && i + 1 < argc)
             preset = juce::String(argv[++i]).getIntValue();
         else if (arg == "--scale" && i + 1 < argc)
@@ -50,9 +52,14 @@ int main(int argc, char* argv[])
         if (auto* parameter = processor->getState().getParameter(id))
             parameter->setValueNotifyingHost(parameter->convertTo0to1(settings[id].getFloatValue()));
 
+    // The editor remembers its size for the user: put back whatever was there before.
+    const auto savedScale = processor->settings().getValue("windowScale");
     {
         std::unique_ptr<juce::AudioProcessorEditor> editor(processor->createEditor());
         editor->setSize(SeerEditor::kDesignWidth, SeerEditor::kDesignHeight);
+        if (browser)
+            if (auto* seerEditor = dynamic_cast<SeerEditor*>(editor.get()))
+                seerEditor->openPresetBrowser();
         editor->setVisible(true);
 
         if (demo)
@@ -100,6 +107,10 @@ int main(int argc, char* argv[])
         }
         std::printf("wrote %s\n", out.getFullPathName().toRawUTF8());
     }
+    if (savedScale.isEmpty())
+        processor->settings().removeValue("windowScale");
+    else
+        processor->settings().setValue("windowScale", savedScale);
     processor.reset();
     return 0;
 }

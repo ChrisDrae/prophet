@@ -44,6 +44,7 @@ void SynthEngine::prepare(double newSampleRate, int maximumBlockSize)
     effectA.prepare(sampleRate, maxBlock);
     effectB.prepare(sampleRate, maxBlock);
 
+    playedAs.fill(-1);
     keyDown.fill(false);
     sustained.fill(false);
     pedal = false;
@@ -110,10 +111,23 @@ void SynthEngine::setParams(const EngineParams& newParams) noexcept
 // -------------------------------------------------------------------------------------------------
 void SynthEngine::handleMidi(const juce::MidiMessage& m) noexcept
 {
+    // Transpose shifts the notes themselves, as a keyboard's octave buttons do, so the filters'
+    // key tracking follows. Each key remembers where it was sent, so a key held while the
+    // transposition changes still lets go of the note it started.
     if (m.isNoteOn())
-        noteOn(m.getNoteNumber(), m.getFloatVelocity());
+    {
+        const int key = m.getNoteNumber();
+        const int shifted = std::clamp(key + 12 * target.transpose, 0, 127);
+        playedAs[static_cast<size_t>(key)] = shifted;
+        noteOn(shifted, m.getFloatVelocity());
+    }
     else if (m.isNoteOff())
-        noteOff(m.getNoteNumber());
+    {
+        const int key = m.getNoteNumber();
+        const int sent = playedAs[static_cast<size_t>(key)];
+        playedAs[static_cast<size_t>(key)] = -1;
+        noteOff(sent >= 0 ? sent : key);
+    }
     else if (m.isPitchWheel())
         setPitchWheel(static_cast<float>(m.getPitchWheelValue() - 8192) / 8192.0f);
     else if (m.isControllerOfType(1))
@@ -327,8 +341,7 @@ int SynthEngine::getNumActiveVoices() const noexcept
 Modulation SynthEngine::currentModulation() const noexcept
 {
     Modulation mod;
-    mod.pitchOffset = pitchWheelSmooth * static_cast<float>(current.bendRange) + current.masterTune * 0.01f
-                      + 12.0f * static_cast<float>(current.transpose);
+    mod.pitchOffset = pitchWheelSmooth * static_cast<float>(current.bendRange) + current.masterTune * 0.01f;
     mod.lfo = lfoValue;
     // The wheel adds only a part of the LFO's full depth, so its whole travel is usable: at the
     // normal setting the top of the wheel is a vibrato of about a semitone each way.

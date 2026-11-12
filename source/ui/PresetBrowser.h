@@ -25,6 +25,8 @@ public:
 
     /// Rebuilds the lists (after a save, a delete, or a new bank) and shows the current preset's group.
     void refresh(bool followCurrent = true);
+    /// Rebuilds the lists and shows one of your banks.
+    void showBank(const juce::String& bank);
     /// The user bank that is selected, or the default bank when a factory group is.
     juce::String getSelectedUserBank() const;
 

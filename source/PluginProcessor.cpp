@@ -2,6 +2,30 @@
 
 #include "PluginEditor.h"
 
+namespace
+{
+const juce::Identifier octaveDownKey { "octaveDownMidi" }, octaveUpKey { "octaveUpMidi" };
+
+} // namespace
+
+seer::SharedSettings::SharedSettings()
+{
+    juce::PropertiesFile::Options options;
+    // Not "Seer.settings": the Standalone app keeps its audio setup in that file, and two objects
+    // writing one file would undo each other's changes.
+    options.applicationName = "Seer Preferences";
+    options.folderName = "Seer";
+    options.filenameSuffix = ".settings";
+    options.osxLibrarySubFolder = "Application Support";
+    options.millisecondsBeforeSaving = -1; // saved explicitly: no timer running at shutdown
+    file = std::make_unique<juce::PropertiesFile>(options);
+}
+
+seer::SharedSettings::~SharedSettings()
+{
+    file->saveIfNeeded();
+}
+
 SeerProcessor::SeerProcessor()
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "Seer", seer::params::createLayout()),
@@ -9,6 +33,14 @@ SeerProcessor::SeerProcessor()
 {
     // Start on the first factory sound. (A host that has a saved session replaces it right away.)
     presets.load(0, false);
+
+    octaveButtons.setBinding(-1, static_cast<uint32_t>(settings().getIntValue(octaveDownKey.toString())));
+    octaveButtons.setBinding(+1, static_cast<uint32_t>(settings().getIntValue(octaveUpKey.toString())));
+}
+
+SeerProcessor::~SeerProcessor()
+{
+    cancelPendingUpdate();
 }
 
 void SeerProcessor::prepareToPlay(double sampleRate, int maximumExpectedSamplesPerBlock)
@@ -17,6 +49,7 @@ void SeerProcessor::prepareToPlay(double sampleRate, int maximumExpectedSamplesP
     setLatencySamples(engine.getLatencySamples());
     keyboardState.reset();
     sentPitchWheel = sentModWheel = 0.0f;
+    passOn.ensureSize(8192);
 }
 
 bool SeerProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
@@ -69,9 +102,59 @@ void SeerProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
             lastAftertouch.store(static_cast<float>(m.getChannelPressureValue()) / 127.0f, std::memory_order_relaxed);
     }
 
+    // The keyboard's octave buttons, if it sends them as messages of their own: they move the
+    // transposition instead of reaching the synth.
+    passOn.clear();
+    bool taken = false;
+    for (const auto metadata : midi)
+    {
+        const auto m = metadata.getMessage();
+        switch (octaveButtons.handle(m))
+        {
+            case seer::OctaveButtons::Result::none: passOn.addEvent(m, metadata.samplePosition); break;
+            case seer::OctaveButtons::Result::octaveDown: pendingOctave.fetch_sub(1, std::memory_order_relaxed); [[fallthrough]];
+            case seer::OctaveButtons::Result::learned: triggerAsyncUpdate(); [[fallthrough]];
+            case seer::OctaveButtons::Result::swallowed: taken = true; break;
+            case seer::OctaveButtons::Result::octaveUp:
+                pendingOctave.fetch_add(1, std::memory_order_relaxed);
+                triggerAsyncUpdate();
+                taken = true;
+                break;
+        }
+    }
+    if (taken)
+        midi.swapWith(passOn);
+
     engine.process(buffer, midi, parameters.read());
     activeVoices.store(engine.getNumActiveVoices(), std::memory_order_relaxed);
     midi.clear();
+}
+
+void SeerProcessor::handleAsyncUpdate()
+{
+    if (const int delta = pendingOctave.exchange(0); delta != 0)
+        shiftOctave(delta);
+
+    // Keep learned buttons for next time, for every instance.
+    const int down = static_cast<int>(octaveButtons.getBinding(-1)), up = static_cast<int>(octaveButtons.getBinding(+1));
+    if (settings().getIntValue(octaveDownKey.toString()) != down || settings().getIntValue(octaveUpKey.toString()) != up)
+    {
+        settings().setValue(octaveDownKey.toString(), down);
+        settings().setValue(octaveUpKey.toString(), up);
+        settings().saveIfNeeded();
+    }
+}
+
+void SeerProcessor::shiftOctave(int delta)
+{
+    if (auto* parameter = apvts.getParameter(seer::params::id::transpose))
+    {
+        const float now = parameter->convertFrom0to1(parameter->getValue());
+        const float next = juce::jlimit(-2.0f, 2.0f, now + static_cast<float>(delta));
+        parameter->beginChangeGesture();
+        parameter->setValueNotifyingHost(parameter->convertTo0to1(next));
+        parameter->endChangeGesture();
+    }
 }
 
 juce::AudioProcessorEditor* SeerProcessor::createEditor()
